@@ -1,0 +1,168 @@
+<!--pages/bookAdd/bookAdd.wxml-->
+<view class="container page-enter">
+  <van-tabs active="{{ activeTab }}" bind:change="onTabChange" color="{{theme.accentColor}}">
+    <!-- ISBN扫码/搜索标签页 -->
+    <van-tab title="扫码添加">
+      <view class="isbn-container">
+        <image class="isbn-image" src="/images/isbn-scan.png" mode="aspectFit"></image>
+        
+        <view class="isbn-search-bar">
+          <van-field
+            value="{{ isbnValue }}"
+            clearable
+            placeholder="输入ISBN编号"
+            bind:change="onIsbnInput"
+            use-button-slot
+          >
+            <van-button 
+              slot="button" 
+              size="small" 
+              type="primary" 
+              loading="{{isbnLoading}}"
+              bind:click="searchByIsbn"
+              color="{{theme.accentColor}}"
+            >查询</van-button>
+          </van-field>
+        </view>
+        
+        <view class="scan-button-wrapper">
+          <van-button 
+            icon="scan" 
+            type="primary" 
+            block 
+            bind:click="scanCode"
+            color="{{theme.accentColor}}"
+          >扫描ISBN条码</van-button>
+        </view>
+        
+        <view class="isbn-tips">
+          <view class="tips-title">扫码添加提示：</view>
+          <view class="tips-item">1. 可直接扫描书籍背面ISBN条码</view>
+          <view class="tips-item">2. 扫码后自动查询书籍信息</view>
+          <view class="tips-item">3. 查询成功后可编辑书籍信息</view>
+        </view>
+      </view>
+    </van-tab>
+    
+    <!-- 手动填写表单标签页 -->
+    <van-tab title="手动添加">
+      <view class="form-container">
+        <!-- 书籍封面 -->
+        <view class="cover-upload" bindtap="uploadCover">
+          <image 
+            wx:if="{{bookForm.coverUrl}}" 
+            src="{{bookForm.coverUrl}}" 
+            mode="aspectFill" 
+            class="cover-image"
+          ></image>
+          <view wx:else class="cover-placeholder">
+            <van-icon name="photo-o" size="24px" />
+            <view>上传封面</view>
+          </view>
+        </view>
+        
+        <!-- 书籍表单 -->
+        <van-cell-group>
+          <van-field
+            value="{{ bookForm.title }}"
+            required
+            clearable
+            label="书名"
+            placeholder="请输入书名"
+            bind:change="onInputChange"
+            data-field="title"
+          />
+          
+          <van-field
+            value="{{ bookForm.author }}"
+            clearable
+            label="作者"
+            placeholder="请输入作者"
+            bind:change="onInputChange"
+            data-field="author"
+          />
+          
+          <van-field
+            value="{{ bookForm.publisher }}"
+            clearable
+            label="出版社"
+            placeholder="请输入出版社"
+            bind:change="onInputChange"
+            data-field="publisher"
+          />
+          
+          <van-field
+            value="{{ bookForm.publishDate }}"
+            clearable
+            label="出版日期"
+            placeholder="如: 2020-01"
+            bind:change="onInputChange"
+            data-field="publishDate"
+          />
+          
+          <van-field
+            value="{{ bookForm.isbn }}"
+            clearable
+            label="ISBN"
+            placeholder="请输入ISBN编号"
+            bind:change="onInputChange"
+            data-field="isbn"
+          />
+          
+          <van-field
+            value="{{ currentCategory }}"
+            label="分类"
+            placeholder="请选择分类"
+            readonly
+            bindtap="openCategoryPicker"
+            right-icon="arrow"
+          />
+          
+          <van-field
+            value="{{ bookForm.description }}"
+            type="textarea"
+            clearable
+            label="简介"
+            placeholder="请输入简介"
+            bind:change="onInputChange"
+            data-field="description"
+            autosize="{{ {maxHeight: 100, minHeight: 50} }}"
+          />
+        </van-cell-group>
+        
+        <!-- 保存按钮 -->
+        <view class="form-button-wrapper">
+          <van-button 
+            type="primary" 
+            block 
+            bind:click="saveBook"
+            color="{{theme.accentColor}}"
+          >保存到我的书架</van-button>
+        </view>
+      </view>
+    </van-tab>
+  </van-tabs>
+  
+  <!-- 分类选择弹窗 -->
+  <van-popup
+    show="{{ showCategoryPicker }}"
+    position="bottom"
+    bind:close="closeCategoryPicker"
+    round
+  >
+    <view class="category-popup">
+      <view class="category-title">选择分类</view>
+      <view class="category-list">
+        <view 
+          class="category-item {{currentCategory === item ? 'active' : ''}}" 
+          wx:for="{{categories}}" 
+          wx:key="*this"
+          bindtap="onCategorySelected"
+          data-value="{{item}}"
+        >
+          {{item}}
+        </view>
+      </view>
+    </view>
+  </van-popup>
+</view>

@@ -1,0 +1,19 @@
+{
+  "name": "family-library",
+  "version": "1.0.0",
+  "description": "家庭图书馆小程序",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "weapp",
+    "library",
+    "books"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@vant/weapp": "^1.11.7"
+  }
+}

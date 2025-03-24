@@ -1,0 +1,142 @@
+<!--pages/index/index.wxml-->
+<view class="container page-enter">
+  <!-- 顶部标题栏 -->
+  <view class="header flex-between">
+    <view class="title">我的书架</view>
+    <view class="filter-btns">
+      <!-- 排序按钮 -->
+      <view class="sort-btn" bindtap="openSortPopup">
+        <van-icon name="sort" size="20px" />
+        <text>排序</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 分类选择 -->
+  <scroll-view scroll-x="true" class="category-scroll">
+    <view class="category-container">
+      <view 
+        wx:for="{{categories}}" 
+        wx:key="*this" 
+        class="category-item {{currentCategory === item ? 'active' : ''}}"
+        bindtap="onCategoryChange"
+        data-category="{{item}}"
+      >{{item}}</view>
+    </view>
+  </scroll-view>
+
+  <!-- 书籍状态切换 -->
+  <van-tabs active="{{ activeTab }}" bind:change="onTabChange" color="{{theme.accentColor}}">
+    <van-tab title="在库">
+      <!-- 书籍列表 -->
+      <view class="book-list" wx:if="{{!loading && displayBooks.length > 0}}">
+        <view 
+          class="book-card card" 
+          wx:for="{{displayBooks}}" 
+          wx:key="id"
+          bindtap="navigateToDetail"
+          data-id="{{item.id}}"
+        >
+          <view class="book-card-content flex">
+            <!-- 书籍封面 -->
+            <view class="book-cover">
+              <image src="{{item.coverUrl || '/images/default-cover.png'}}" mode="aspectFill"></image>
+            </view>
+            <!-- 书籍信息 -->
+            <view class="book-info">
+              <view class="book-title text-ellipsis">{{item.title}}</view>
+              <view class="book-author text-ellipsis">{{item.author}}</view>
+              <view class="book-publisher text-ellipsis">{{item.publisher}}</view>
+              <view class="book-meta flex">
+                <view class="book-date">{{item.publishDate}}</view>
+                <view class="tag tag-accent" wx:if="{{item.category}}">{{item.category}}</view>
+              </view>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <!-- 空状态 -->
+      <view class="empty-state" wx:if="{{!loading && displayBooks.length === 0}}">
+        <image src="/images/empty-shelf.png" mode="aspectFit"></image>
+        <view class="empty-text">您的书架暂时没有书籍</view>
+        <view class="btn-wrapper">
+          <button class="btn" bindtap="navigateToAdd">添加一本书</button>
+        </view>
+      </view>
+
+      <!-- 加载中 -->
+      <view class="loading flex-center" wx:if="{{loading}}">
+        <van-loading color="{{theme.accentColor}}" />
+        <text class="loading-text">加载中...</text>
+      </view>
+    </van-tab>
+
+    <van-tab title="已借出">
+      <!-- 已借出的书籍列表，与在库书籍结构相同 -->
+      <view class="book-list" wx:if="{{!loading && displayBooks.length > 0}}">
+        <view 
+          class="book-card card" 
+          wx:for="{{displayBooks}}" 
+          wx:key="id"
+          bindtap="navigateToDetail"
+          data-id="{{item.id}}"
+        >
+          <view class="book-card-content flex">
+            <!-- 书籍封面 -->
+            <view class="book-cover">
+              <image src="{{item.coverUrl || '/images/default-cover.png'}}" mode="aspectFill"></image>
+            </view>
+            <!-- 书籍信息 -->
+            <view class="book-info">
+              <view class="book-title text-ellipsis">{{item.title}}</view>
+              <view class="book-author text-ellipsis">{{item.author}}</view>
+              <view class="book-meta flex">
+                <view class="book-borrower">借阅人: {{item.borrower || '未知'}}</view>
+              </view>
+              <view class="book-meta flex">
+                <view class="book-borrow-date">借出时间: {{item.borrowDate || '未记录'}}</view>
+              </view>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <!-- 空状态 -->
+      <view class="empty-state" wx:if="{{!loading && displayBooks.length === 0}}">
+        <image src="/images/empty-borrow.png" mode="aspectFit"></image>
+        <view class="empty-text">没有已借出的书籍</view>
+      </view>
+
+      <!-- 加载中 -->
+      <view class="loading flex-center" wx:if="{{loading}}">
+        <van-loading color="{{theme.accentColor}}" />
+        <text class="loading-text">加载中...</text>
+      </view>
+    </van-tab>
+  </van-tabs>
+
+  <!-- 排序弹窗 -->
+  <van-popup
+    show="{{ showSortPopup }}"
+    position="bottom"
+    bind:close="closeSortPopup"
+    round
+  >
+    <view class="sort-popup">
+      <view class="sort-title">选择排序方式</view>
+      <view class="sort-options">
+        <view 
+          class="sort-option {{sortType === item.value ? 'active' : ''}}" 
+          wx:for="{{sortOptions}}" 
+          wx:key="value"
+          bindtap="onSortChange"
+          data-value="{{item.value}}"
+        >
+          <text>{{item.text}}</text>
+          <van-icon name="success" wx:if="{{sortType === item.value}}" />
+        </view>
+      </view>
+    </view>
+  </van-popup>
+</view> 

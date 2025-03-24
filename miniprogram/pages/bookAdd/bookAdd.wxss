@@ -1,0 +1,125 @@
+/* pages/bookAdd/bookAdd.wxss */
+.container {
+  padding-bottom: 30px;
+}
+
+/* ISBN扫码页样式 */
+.isbn-container {
+  padding: 20px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.isbn-image {
+  width: 160px;
+  height: 120px;
+  margin-bottom: 20px;
+}
+
+.isbn-search-bar {
+  width: 100%;
+  margin-bottom: 16px;
+}
+
+.scan-button-wrapper {
+  width: 100%;
+  margin-bottom: 24px;
+}
+
+.isbn-tips {
+  width: 100%;
+  background-color: rgba(143, 188, 143, 0.1);
+  padding: 12px;
+  border-radius: var(--border-radius);
+  margin-top: 20px;
+}
+
+.tips-title {
+  font-weight: 500;
+  margin-bottom: 8px;
+  color: var(--accent-color);
+}
+
+.tips-item {
+  font-size: 13px;
+  color: #666;
+  margin-bottom: 4px;
+}
+
+/* 表单页样式 */
+.form-container {
+  padding-top: 16px;
+}
+
+.cover-upload {
+  width: 120px;
+  height: 168px;
+  margin: 0 auto 24px;
+  background-color: #f5f5f5;
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.cover-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cover-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: #999;
+}
+
+.cover-placeholder view {
+  margin-top: 8px;
+  font-size: 12px;
+}
+
+.form-button-wrapper {
+  margin-top: 30px;
+  padding: 0 16px;
+}
+
+/* 分类选择弹窗 */
+.category-popup {
+  padding: 20px;
+}
+
+.category-title {
+  text-align: center;
+  font-size: 16px;
+  font-weight: 500;
+  margin-bottom: 20px;
+}
+
+.category-list {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+}
+
+.category-list .category-item {
+  width: calc(33.33% - 10px);
+  height: 44px;
+  background-color: #f5f5f5;
+  border-radius: var(--border-radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 15px;
+  font-size: 14px;
+  transition: all 0.3s;
+}
+
+.category-list .category-item.active {
+  background-color: var(--accent-color);
+  color: white;
+} 

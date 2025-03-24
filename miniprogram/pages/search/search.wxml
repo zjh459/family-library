@@ -1,0 +1,151 @@
+<!--pages/search/search.wxml-->
+<view class="container page-enter">
+  <!-- 搜索栏 -->
+  <view class="search-header">
+    <van-search
+      value="{{ keyword }}"
+      placeholder="搜索书名、作者或ISBN"
+      use-action-slot
+      bind:change="onKeywordInput"
+      bind:search="onSearch"
+      background="{{theme.primaryColor}}"
+      shape="round"
+    >
+      <view slot="action" bindtap="openFilterPopup" class="filter-btn">
+        <van-icon name="filter-o" size="18px" />
+        <text>筛选</text>
+      </view>
+    </van-search>
+  </view>
+
+  <!-- 搜索历史 -->
+  <view class="search-history" wx:if="{{searchHistory.length > 0 && !hasSearched}}">
+    <view class="history-header">
+      <view class="history-title">搜索历史</view>
+      <view class="clear-history" bindtap="clearHistory">
+        <van-icon name="delete-o" size="14px" />
+        <text>清空</text>
+      </view>
+    </view>
+    <view class="history-list">
+      <view 
+        class="history-item" 
+        wx:for="{{searchHistory}}" 
+        wx:key="*this"
+        bindtap="onHistoryItemTap"
+        data-keyword="{{item}}"
+      >
+        <van-icon name="clock-o" size="14px" />
+        <text>{{item}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 搜索结果 -->
+  <view class="search-results" wx:if="{{hasSearched}}">
+    <!-- 加载中 -->
+    <view class="loading flex-center" wx:if="{{isSearching}}">
+      <van-loading color="{{theme.accentColor}}" />
+      <text class="loading-text">搜索中...</text>
+    </view>
+
+    <!-- 结果列表 -->
+    <view class="result-list" wx:if="{{!isSearching && searchResults.length > 0}}">
+      <view 
+        class="book-card card" 
+        wx:for="{{searchResults}}" 
+        wx:key="id"
+        bindtap="navigateToDetail"
+        data-id="{{item.id}}"
+      >
+        <view class="book-card-content flex">
+          <!-- 书籍封面 -->
+          <view class="book-cover">
+            <image src="{{item.coverUrl || '/images/default-cover.png'}}" mode="aspectFill"></image>
+          </view>
+          <!-- 书籍信息 -->
+          <view class="book-info">
+            <view class="book-title text-ellipsis">{{item.title}}</view>
+            <view class="book-author text-ellipsis">{{item.author}}</view>
+            <view class="book-publisher text-ellipsis">{{item.publisher}}</view>
+            <view class="book-meta flex">
+              <view class="book-date">{{item.publishDate}}</view>
+              <view class="book-status {{item.borrowStatus === 'in' ? 'status-in' : 'status-out'}}">
+                {{item.borrowStatus === 'in' ? '在库' : '已借出'}}
+              </view>
+              <view class="tag tag-accent" wx:if="{{item.category}}">{{item.category}}</view>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 无结果 -->
+    <view class="empty-result" wx:if="{{!isSearching && searchResults.length === 0}}">
+      <image src="/images/empty-search.png" mode="aspectFit"></image>
+      <view class="empty-text">没有找到符合条件的书籍</view>
+    </view>
+  </view>
+
+  <!-- 筛选弹窗 -->
+  <van-popup
+    show="{{ showFilterPopup }}"
+    position="right"
+    bind:close="closeFilterPopup"
+    custom-style="width: 80%; height: 100%;"
+  >
+    <view class="filter-popup">
+      <view class="filter-title">筛选条件</view>
+      
+      <!-- 分类筛选 -->
+      <view class="filter-section">
+        <view class="filter-section-title">图书分类</view>
+        <view class="filter-options">
+          <view 
+            class="filter-option {{currentCategory === item ? 'active' : ''}}" 
+            wx:for="{{categories}}" 
+            wx:key="*this"
+            bindtap="onCategorySelect"
+            data-value="{{item}}"
+          >
+            {{item}}
+          </view>
+        </view>
+      </view>
+      
+      <!-- 出版年份筛选 -->
+      <view class="filter-section">
+        <view class="filter-section-title">出版年份</view>
+        <view class="filter-options">
+          <view 
+            class="filter-option {{currentPublishYear === item ? 'active' : ''}}" 
+            wx:for="{{publishYears}}" 
+            wx:key="*this"
+            bindtap="onPublishYearSelect"
+            data-value="{{item}}"
+          >
+            {{item}}
+          </view>
+        </view>
+      </view>
+      
+      <!-- 操作按钮 -->
+      <view class="filter-buttons">
+        <van-button 
+          plain 
+          block 
+          bind:click="resetFilter"
+          custom-class="reset-btn"
+        >重置</van-button>
+        
+        <van-button 
+          type="primary" 
+          block 
+          bind:click="applyFilter"
+          color="{{theme.accentColor}}"
+          custom-class="apply-btn"
+        >确定</van-button>
+      </view>
+    </view>
+  </van-popup>
+</view> 

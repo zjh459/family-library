@@ -1,0 +1,183 @@
+/* pages/index/index.wxss */
+.header {
+  padding: 10px 0;
+  margin-bottom: 10px;
+}
+
+.title {
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.filter-btns {
+  display: flex;
+}
+
+.sort-btn {
+  display: flex;
+  align-items: center;
+  padding: 5px 10px;
+  background-color: rgba(143, 188, 143, 0.1);
+  border-radius: var(--border-radius);
+}
+
+.sort-btn text {
+  margin-left: 4px;
+  font-size: 14px;
+}
+
+/* 分类滚动条 */
+.category-scroll {
+  width: 100%;
+  white-space: nowrap;
+  margin-bottom: 16px;
+}
+
+.category-container {
+  display: inline-flex;
+  padding: 2px 0;
+}
+
+.category-item {
+  display: inline-block;
+  padding: 6px 12px;
+  margin-right: 8px;
+  font-size: 14px;
+  border-radius: 16px;
+  background-color: #f0f0f0;
+  transition: all 0.3s;
+}
+
+.category-item.active {
+  background-color: var(--accent-color);
+  color: white;
+}
+
+/* 书籍列表 */
+.book-list {
+  padding: 8px 0;
+}
+
+.book-card {
+  margin-bottom: 16px;
+  transition: transform 0.3s;
+}
+
+.book-card:active {
+  transform: scale(0.98);
+}
+
+.book-card-content {
+  padding: 12px;
+}
+
+.book-info {
+  margin-left: 16px;
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.book-title {
+  font-size: 16px;
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.book-author {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 4px;
+}
+
+.book-publisher {
+  font-size: 12px;
+  color: #999;
+  margin-bottom: 2px;
+}
+
+.book-meta {
+  font-size: 12px;
+  color: #999;
+  margin-top: 4px;
+  align-items: center;
+}
+
+.book-date {
+  margin-right: 8px;
+}
+
+.book-borrower, 
+.book-borrow-date {
+  color: #666;
+}
+
+/* 空状态 */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 0;
+}
+
+.empty-state image {
+  width: 120px;
+  height: 120px;
+  margin-bottom: 16px;
+}
+
+.empty-text {
+  font-size: 14px;
+  color: #999;
+  margin-bottom: 16px;
+}
+
+.btn-wrapper {
+  margin-top: 16px;
+}
+
+/* 加载状态 */
+.loading {
+  padding: 30px 0;
+}
+
+.loading-text {
+  font-size: 14px;
+  color: #999;
+  margin-left: 10px;
+}
+
+/* 排序弹窗 */
+.sort-popup {
+  padding: 20px;
+}
+
+.sort-title {
+  font-size: 16px;
+  font-weight: 500;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.sort-options {
+  padding: 8px 0;
+}
+
+.sort-option {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 0;
+  border-bottom: 1px solid #f5f5f5;
+}
+
+.sort-option:last-child {
+  border-bottom: none;
+}
+
+.sort-option.active {
+  color: var(--accent-color);
+} 
