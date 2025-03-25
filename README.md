@@ -62,3 +62,41 @@ npm install
 ## 许可证
 
 MIT License 
+
+## Vant组件引用问题解决方案
+
+针对错误：`app.json: ["usingComponents"]["van-button"]: "miniprogram_npm/@vant/weapp/button/index" 路径下未找到组件`
+
+### 解决方案：正确引用miniprogram文件夹下的组件
+
+1. 确保project.config.json中设置正确：
+   ```json
+   "packNpmManually": true,
+   "packNpmRelationList": [
+     {
+       "packageJsonPath": "./package.json",
+       "miniprogramNpmDistDir": "./miniprogram/"
+     }
+   ]
+   ```
+
+   这表示npm包会被构建到`miniprogram`目录下。
+
+2. 在app.json中使用正确的组件路径：
+   ```json
+   "usingComponents": {
+     "van-button": "miniprogram/miniprogram_npm/@vant/weapp/button/index",
+     ...
+   }
+   ```
+
+3. 在微信开发者工具中执行以下操作：
+   - 确保已安装依赖：`npm install`
+   - 点击"工具" -> "构建npm"
+   - 确保在miniprogram文件夹下生成了miniprogram_npm目录
+   - 重新编译项目
+
+4. 如果仍然有问题，可以尝试：
+   - 删除miniprogram_npm目录
+   - 重新构建npm
+   - 重启开发者工具 

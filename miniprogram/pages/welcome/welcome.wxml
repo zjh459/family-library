@@ -1,0 +1,20 @@
+<view class="welcome-container">
+  <view class="welcome-image">
+    <image src="/miniprogram/images/welcome-illustration.jpg" mode="aspectFit"></image>
+  </view>
+  
+  <view class="welcome-content">
+    <view class="welcome-title">家庭图书馆</view>
+    <view class="welcome-subtitle">记录每一本值得珍藏的书</view>
+  </view>
+
+  <view class="enter-button">
+    <van-button 
+      type="primary" 
+      block 
+      round
+      color="{{theme.accentColor}}"
+      bind:click="enterApp"
+    >开启阅读之旅</van-button>
+  </view>
+</view> 
