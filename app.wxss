@@ -1,48 +1,123 @@
 /**app.wxss**/
 page {
-  --primary-color: #F5F5DC; /* 米白色 */
-  --secondary-color: #D2B48C; /* 原木色 */
-  --accent-color: #8FBC8F; /* 豆沙绿 */
-  --alternate-accent: #87CEEB; /* 雾霾蓝 */
-  --border-radius: 8px;
+  --primary-color: #FFF5E6;    /* 主色（主背景/大面积留白） */
+  --secondary-color: #C8D8C7;  /* 辅助色（次级背景/模块容器） */
+  --accent-color: #FFA07A;     /* 点缀色（按钮/高亮图标） */
+  --text-color: #4A3F35;       /* 文字色（正文文字/深色控件） */
+  --highlight-color: #C8D8C7;  /* 高亮色(使用辅助色) */
+  --border-radius: 8px;        /* 圆角大小 */
   
   background-color: var(--primary-color);
-  font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Helvetica, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', Arial, sans-serif;
-  color: #333;
-  font-size: 14px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  font-size: 28rpx;
   line-height: 1.5;
+  color: var(--text-color);
 }
 
 .container {
-  padding: 16px;
+  padding: 20rpx;
   box-sizing: border-box;
+  min-height: 100vh;
+}
+
+/* 通用卡片样式 */
+.card {
+  background-color: var(--secondary-color);
+  border-radius: var(--border-radius);
+  padding: 20rpx;
+  margin-bottom: 20rpx;
+  box-shadow: 0 2rpx 10rpx rgba(0, 0, 0, 0.05);
+}
+
+/* 通用按钮样式 */
+.btn {
+  background-color: var(--accent-color);
+  color: white;
+  border-radius: var(--border-radius);
+  padding: 20rpx 40rpx;
+  display: inline-block;
+  text-align: center;
+  font-weight: bold;
+}
+
+.btn-small {
+  padding: 10rpx 20rpx;
+  font-size: 24rpx;
+}
+
+/* 通用标签样式 */
+.tag {
+  background-color: var(--secondary-color);
+  color: var(--text-color);
+  padding: 6rpx 16rpx;
+  border-radius: 20rpx;
+  font-size: 24rpx;
+  display: inline-block;
+  margin-right: 10rpx;
+  margin-bottom: 10rpx;
+}
+
+/* 通用文本输入框样式 */
+.input-field {
+  background-color: white;
+  border-radius: var(--border-radius);
+  padding: 16rpx;
+  margin-bottom: 20rpx;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+/* 通用标题样式 */
+.title {
+  font-size: 36rpx;
+  font-weight: bold;
+  margin-bottom: 20rpx;
+  color: var(--text-color);
+}
+
+.subtitle {
+  font-size: 32rpx;
+  font-weight: bold;
+  margin-bottom: 16rpx;
+  color: var(--text-color);
+}
+
+/* 通用错误信息样式 */
+.error-text {
+  color: #e74c3c;
+  font-size: 24rpx;
+  margin-top: 6rpx;
+}
+
+/* 空状态提示 */
+.empty-state {
+  text-align: center;
+  padding: 60rpx 20rpx;
+  color: var(--text-color);
+}
+
+.empty-state-icon {
+  font-size: 80rpx;
+  margin-bottom: 20rpx;
+}
+
+.empty-state-text {
+  font-size: 28rpx;
+}
+
+/* 加载状态样式 */
+.loading-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 40rpx;
 }
 
 /* 卡片样式 */
-.card {
-  background-color: #fff;
-  border-radius: var(--border-radius);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-  margin-bottom: 16px;
-  overflow: hidden;
-  position: relative;
-}
-
 .card-content {
   padding: 12px 16px;
 }
 
 /* 按钮样式 */
-.btn {
-  background-color: var(--accent-color);
-  color: #fff;
-  border-radius: var(--border-radius);
-  padding: 8px 16px;
-  border: none;
-  font-size: 14px;
-  transition: all 0.3s ease;
-}
-
 .btn:active {
   transform: scale(0.98);
   opacity: 0.9;
@@ -75,18 +150,8 @@ page {
 }
 
 /* 标签样式 */
-.tag {
-  display: inline-block;
-  padding: 4px 8px;
-  font-size: 12px;
-  border-radius: var(--border-radius);
-  background-color: #f0f0f0;
-  color: #666;
-  margin-right: 8px;
-}
-
 .tag-accent {
-  background-color: rgba(143, 188, 143, 0.2);
+  background-color: rgba(200, 216, 199, 0.5);
   color: var(--accent-color);
 }
 

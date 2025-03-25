@@ -4,7 +4,7 @@
     <!-- ISBN扫码/搜索标签页 -->
     <van-tab title="扫码添加">
       <view class="isbn-container">
-        <image class="isbn-image" src="/images/isbn-scan.png" mode="aspectFit"></image>
+        <image class="isbn-image" src="/miniprogram/images/isbn-scan.png" mode="aspectFit"></image>
         
         <view class="isbn-search-bar">
           <van-field
@@ -40,6 +40,8 @@
           <view class="tips-item">1. 可直接扫描书籍背面ISBN条码</view>
           <view class="tips-item">2. 扫码后自动查询书籍信息</view>
           <view class="tips-item">3. 查询成功后可编辑书籍信息</view>
+          <view class="tips-item">4. 如未找到图书信息，可切换至"手动添加"标签页直接填写</view>
+          <view class="tips-item note">注意：部分新书或小众图书可能无法通过ISBN查询到信息</view>
         </view>
       </view>
     </van-tab>
@@ -109,13 +111,71 @@
             data-field="isbn"
           />
           
+          <view class="form-item">
+            <view class="form-label">分类标签</view>
+            <view class="category-tags">
+              <view 
+                class="category-tag {{selectedCategories.indexOf(category._id) !== -1 ? 'active' : ''}}" 
+                wx:for="{{categories}}" 
+                wx:key="_id" 
+                wx:for-item="category"
+                bindtap="toggleCategory" 
+                data-id="{{category._id}}"
+                data-name="{{category.name}}"
+                style="{{selectedCategories.indexOf(category._id) !== -1 ? 'background-color:' + theme.accentColor + ';color:white' : ''}}"
+              >
+                <text>{{category.name}}</text>
+                <text wx:if="{{selectedCategories.indexOf(category._id) !== -1}}" class="selected-mark">✓</text>
+              </view>
+              <view class="category-tag add-tag" bindtap="showAddCategoryModal">
+                <van-icon name="plus" size="14px" /> 添加新分类
+              </view>
+            </view>
+          </view>
+          
           <van-field
-            value="{{ currentCategory }}"
-            label="分类"
-            placeholder="请选择分类"
-            readonly
-            bindtap="openCategoryPicker"
-            right-icon="arrow"
+            value="{{ bookForm.pages }}"
+            clearable
+            label="页数"
+            placeholder="请输入页数"
+            bind:change="onInputChange"
+            data-field="pages"
+          />
+          
+          <van-field
+            value="{{ bookForm.price }}"
+            clearable
+            label="定价"
+            placeholder="请输入定价"
+            bind:change="onInputChange"
+            data-field="price"
+          />
+          
+          <van-field
+            value="{{ bookForm.binding }}"
+            clearable
+            label="装帧"
+            placeholder="请输入装帧信息"
+            bind:change="onInputChange"
+            data-field="binding"
+          />
+          
+          <van-field
+            value="{{ bookForm.edition }}"
+            clearable
+            label="版次"
+            placeholder="请输入版次"
+            bind:change="onInputChange"
+            data-field="edition"
+          />
+          
+          <van-field
+            value="{{ bookForm.format }}"
+            clearable
+            label="开本"
+            placeholder="请输入开本信息"
+            bind:change="onInputChange"
+            data-field="format"
           />
           
           <van-field
@@ -143,26 +203,51 @@
     </van-tab>
   </van-tabs>
   
-  <!-- 分类选择弹窗 -->
-  <van-popup
-    show="{{ showCategoryPicker }}"
-    position="bottom"
-    bind:close="closeCategoryPicker"
-    round
-  >
-    <view class="category-popup">
-      <view class="category-title">选择分类</view>
-      <view class="category-list">
-        <view 
-          class="category-item {{currentCategory === item ? 'active' : ''}}" 
-          wx:for="{{categories}}" 
-          wx:key="*this"
-          bindtap="onCategorySelected"
-          data-value="{{item}}"
-        >
-          {{item}}
+  <!-- 分类选择器弹窗 -->
+  <view class="category-picker-modal" wx:if="{{showCategoryPickerModal}}">
+    <view class="category-picker-overlay" bindtap="hideCategoryPicker"></view>
+    <view class="category-picker-content">
+      <view class="category-picker-header">
+        <view class="category-picker-title">选择分类</view>
+        <view class="category-picker-close" bindtap="hideCategoryPicker">×</view>
+      </view>
+      <view class="category-picker-body">
+        <view class="category-picker-list">
+          <view 
+            class="category-picker-item {{selectedCategories.includes(item.name) ? 'selected' : ''}}" 
+            wx:for="{{categories}}" 
+            wx:key="_id"
+            bindtap="toggleCategory"
+            data-category="{{item.name}}"
+          >
+            {{item.name}}
+            <text class="category-check" wx:if="{{selectedCategories.includes(item.name)}}">✓</text>
+          </view>
+        </view>
+        <view class="category-picker-empty" wx:if="{{categories.length === 0}}">
+          暂无分类，请先去分类页面添加
         </view>
       </view>
+      <view class="category-picker-footer">
+        <view class="category-picker-btn" bindtap="hideCategoryPicker">完成</view>
+      </view>
     </view>
-  </van-popup>
+  </view>
+
+  <!-- 添加新分类的弹窗 -->
+  <van-dialog
+    use-slot
+    title="添加新分类"
+    show="{{ showAddCategoryModal }}"
+    show-cancel-button
+    bind:confirm="addNewCategory"
+    bind:close="closeAddCategoryModal"
+  >
+    <van-field
+      model:value="{{ newCategoryName }}"
+      placeholder="请输入分类名称"
+      border="{{ false }}"
+      bind:change="onNewCategoryInput"
+    />
+  </van-dialog>
 </view>

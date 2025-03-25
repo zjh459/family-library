@@ -1,20 +1,16 @@
 const app = getApp();
+const db = wx.cloud.database();
+const _ = db.command;
 
 Page({
   data: {
     books: [],
-    activeTab: 0,
-    sortType: 'time', // 排序方式：time-添加时间, name-书名, date-出版时间
-    sortOptions: [
-      { text: '按添加时间', value: 'time' },
-      { text: '按书名', value: 'name' },
-      { text: '按出版时间', value: 'date' }
-    ],
-    showSortPopup: false,
-    categories: ['全部', '小说', '经管', '科技', '文学', '其他'],
-    currentCategory: '全部',
-    loading: true,
-    theme: {}
+    searchValue: '',
+    filteredBooks: [],
+    theme: {},
+    categories: [],           // 所有分类
+    selectedCategory: 'all',  // 当前选中的分类，默认为全部
+    loading: true
   },
 
   onLoad() {
@@ -22,111 +18,121 @@ Page({
       theme: app.globalData.theme
     });
     this.loadBooks();
+    this.initCategories();
   },
 
   onShow() {
-    // 每次显示页面时重新加载数据
+    // 每次显示页面时重新加载数据，确保数据最新
     this.loadBooks();
+    this.loadCategories();
   },
 
-  // 加载书籍数据
+  // 加载图书数据
   loadBooks() {
-    // 模拟加载过程
-    this.setData({ loading: true });
-    
-    setTimeout(() => {
-      const books = app.globalData.books || [];
-      this.setData({ 
-        books,
-        loading: false
+    db.collection('books')
+      .get()
+      .then(res => {
+        this.setData({
+          books: res.data,
+          filteredBooks: res.data,
+          loading: false
+        });
+        
+        // 如果有选中的分类，则应用分类筛选
+        if (this.data.selectedCategory && this.data.selectedCategory !== 'all') {
+          this.filterBooksByCategory(this.data.selectedCategory);
+        }
+        
+        // 如果有搜索条件，则应用搜索筛选
+        if (this.data.searchValue) {
+          this.filterBooks(this.data.searchValue);
+        }
+      })
+      .catch(err => {
+        console.error('加载图书失败：', err);
+        this.setData({ loading: false });
+        wx.showToast({
+          title: '加载图书失败',
+          icon: 'none'
+        });
       });
-      this.applySortAndFilter();
-    }, 500);
   },
 
-  // 应用排序和筛选
-  applySortAndFilter() {
-    let filteredBooks = [...this.data.books];
+  // 搜索框内容变化
+  onSearchChange(e) {
+    this.setData({
+      searchValue: e.detail
+    });
+    this.filterBooks(e.detail);
+  },
+
+  // 搜索确认
+  onSearch(e) {
+    this.filterBooks(this.data.searchValue);
+  },
+
+  // 过滤图书(搜索)
+  filterBooks(keyword) {
+    let filtered = this.data.books;
     
-    // 按分类筛选
-    if (this.data.currentCategory !== '全部') {
-      filteredBooks = filteredBooks.filter(book => 
-        book.category === this.data.currentCategory
+    // 如果有选中的分类，先按分类筛选
+    if (this.data.selectedCategory && this.data.selectedCategory !== 'all') {
+      filtered = filtered.filter(book => 
+        book.categories && book.categories.includes(this.data.selectedCategory)
       );
     }
     
-    // 按借阅状态筛选
-    if (this.data.activeTab === 1) { // 已借出
-      filteredBooks = filteredBooks.filter(book => book.borrowStatus === 'out');
-    } else if (this.data.activeTab === 0) { // 在库
-      filteredBooks = filteredBooks.filter(book => book.borrowStatus === 'in');
+    // 再按关键词筛选
+    if (keyword) {
+      const searchStr = keyword.toLowerCase();
+      filtered = filtered.filter(book => {
+        return (
+          (book.title && book.title.toLowerCase().includes(searchStr)) ||
+          (book.author && book.author.toLowerCase().includes(searchStr))
+        );
+      });
+    }
+
+    this.setData({
+      filteredBooks: filtered
+    });
+  },
+
+  // 按分类筛选图书
+  filterBooksByCategory(category) {
+    if (category === 'all') {
+      // 如果选择"全部"，则只应用搜索过滤
+      this.filterBooks(this.data.searchValue);
+      return;
     }
     
-    // 排序
-    filteredBooks.sort((a, b) => {
-      switch (this.data.sortType) {
-        case 'name':
-          return (a.title || '').localeCompare(b.title || '');
-        case 'date':
-          return new Date(b.publishDate || 0) - new Date(a.publishDate || 0);
-        case 'time':
-        default:
-          return (b.addTime || 0) - (a.addTime || 0);
-      }
+    // 按分类筛选
+    const filtered = this.data.books.filter(book => 
+      book.categories && book.categories.includes(category)
+    );
+    
+    // 再应用搜索关键词
+    this.setData({
+      filteredBooks: filtered
     });
     
-    this.setData({ 
-      displayBooks: filteredBooks 
-    });
+    if (this.data.searchValue) {
+      this.filterBooks(this.data.searchValue);
+    }
   },
 
-  // 切换标签页
-  onTabChange(e) {
-    this.setData({
-      activeTab: e.detail.index
-    });
-    this.applySortAndFilter();
-  },
-
-  // 打开排序弹窗
-  openSortPopup() {
-    this.setData({ showSortPopup: true });
-  },
-
-  // 关闭排序弹窗
-  closeSortPopup() {
-    this.setData({ showSortPopup: false });
-  },
-
-  // 选择排序方式
-  onSortChange(e) {
-    const sortType = e.currentTarget.dataset.value;
-    this.setData({ 
-      sortType,
-      showSortPopup: false
-    });
-    this.applySortAndFilter();
-  },
-
-  // 切换分类
-  onCategoryChange(e) {
-    const category = e.currentTarget.dataset.category;
-    this.setData({ currentCategory: category });
-    this.applySortAndFilter();
-  },
-
-  // 跳转到书籍详情页
-  navigateToDetail(e) {
-    const bookId = e.currentTarget.dataset.id;
+  // 跳转到图书详情
+  goToDetail(e) {
+    const id = e.currentTarget.dataset.id;
     wx.navigateTo({
-      url: `/pages/bookDetail/bookDetail?id=${bookId}`
+      url: `../bookDetail/bookDetail?id=${id}`
     });
   },
 
-  // 跳转到添加书籍页
-  navigateToAdd() {
-    wx.switchTab({
-      url: '/pages/bookAdd/bookAdd'
+  // 跳转到添加图书
+  goToAdd() {
+    wx.navigateTo({
+      url: '../bookAdd/bookAdd'
     });
   },
 
@@ -134,7 +140,74 @@ Page({
   onShareAppMessage() {
     return {
       title: '我的家庭图书馆',
-      path: '/pages/index/index'
+      path: '/miniprogram/pages/index/index'
     };
+  },
+
+  // 加载分类
+  async loadCategories() {
+    try {
+      const res = await db.collection('categories')
+        .get();
+      this.setData({
+        categories: res.data
+      });
+    } catch (err) {
+      console.error('加载分类失败：', err);
+    }
+  },
+
+  // 选择分类
+  selectCategory(e) {
+    const category = e.currentTarget.dataset.category;
+    this.setData({
+      selectedCategory: category
+    });
+    this.filterBooksByCategory(category);
+  },
+
+  // 初始化分类
+  async initCategories() {
+    try {
+      const { data } = await db.collection('categories').get();
+      
+      if (data && data.length > 0) {
+        this.setData({ categories: data });
+        return;
+      }
+
+      // 如果没有分类数据，创建默认分类
+      const defaultCategories = [
+        { name: '文学', icon: 'book', color: '#FF6B6B' },
+        { name: '科技', icon: 'science', color: '#4ECDC4' },
+        { name: '历史', icon: 'history', color: '#45B7D1' },
+        { name: '艺术', icon: 'art', color: '#96CEB4' },
+        { name: '教育', icon: 'education', color: '#FFEEAD' },
+        { name: '儿童', icon: 'child', color: '#FF9999' },
+        { name: '其他', icon: 'more', color: '#CCCCCC' }
+      ];
+
+      // 批量添加默认分类
+      const tasks = defaultCategories.map(category => 
+        db.collection('categories').add({
+          data: {
+            ...category,
+            createTime: db.serverDate()
+          }
+        })
+      );
+
+      await Promise.all(tasks);
+      
+      // 重新获取分类列表
+      const { data: newData } = await db.collection('categories').get();
+      this.setData({ categories: newData });
+    } catch (error) {
+      console.error('初始化分类失败：', error);
+      wx.showToast({
+        title: '加载分类失败',
+        icon: 'none'
+      });
+    }
   }
 }) 

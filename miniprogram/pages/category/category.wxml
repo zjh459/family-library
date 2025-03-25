@@ -1,0 +1,52 @@
+<view class="container">
+  <view class="header">
+    <view class="title">分类管理</view>
+    <view class="desc">添加、编辑或删除图书分类</view>
+  </view>
+
+  <!-- 添加分类 -->
+  <view class="add-form">
+    <input 
+      type="text" 
+      placeholder="请输入分类名称" 
+      value="{{newCategory}}" 
+      bindinput="onInputChange"
+      class="input"
+      maxlength="20"
+    />
+    <view wx:if="{{!editing}}" class="btn add-btn" bindtap="addCategory">添加</view>
+    <view wx:else class="btn-group">
+      <view class="btn cancel-btn" bindtap="cancelEdit">取消</view>
+      <view class="btn edit-btn" bindtap="updateCategory">保存</view>
+    </view>
+  </view>
+
+  <!-- 分类列表 -->
+  <view class="category-list" wx:if="{{categories.length > 0}}">
+    <view class="category-item" wx:for="{{categories}}" wx:key="_id">
+      <view class="category-info">
+        <view class="category-name">{{item.name}}</view>
+        <view class="category-count">{{item.count || 0}} 本图书</view>
+      </view>
+      <view class="category-actions">
+        <view class="action-btn edit" bindtap="startEdit" data-category="{{item}}">
+          <text class="iconfont icon-edit"></text>
+        </view>
+        <view class="action-btn delete" bindtap="deleteCategory" data-id="{{item._id}}" data-name="{{item.name}}">
+          <text class="iconfont icon-delete"></text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 空状态 -->
+  <view class="empty-state" wx:if="{{!loading && categories.length === 0}}">
+    <image src="/images/empty.png" mode="aspectFit"></image>
+    <text>暂无分类，请添加</text>
+  </view>
+
+  <!-- 加载状态 -->
+  <view class="loading" wx:if="{{loading}}">
+    <text>加载中...</text>
+  </view>
+</view> 

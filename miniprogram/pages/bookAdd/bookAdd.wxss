@@ -1,6 +1,7 @@
 /* pages/bookAdd/bookAdd.wxss */
 .container {
   padding-bottom: 30px;
+  background-color: var(--primary-color);
 }
 
 /* ISBN扫码页样式 */
@@ -29,7 +30,7 @@
 
 .isbn-tips {
   width: 100%;
-  background-color: rgba(143, 188, 143, 0.1);
+  background-color: var(--secondary-color);
   padding: 12px;
   border-radius: var(--border-radius);
   margin-top: 20px;
@@ -42,9 +43,15 @@
 }
 
 .tips-item {
-  font-size: 13px;
-  color: #666;
-  margin-bottom: 4px;
+  margin-bottom: 8rpx;
+  font-size: 28rpx;
+  color: var(--text-color);
+}
+
+.tips-item.note {
+  margin-top: 16rpx;
+  color: var(--accent-color);
+  font-size: 26rpx;
 }
 
 /* 表单页样式 */
@@ -56,7 +63,7 @@
   width: 120px;
   height: 168px;
   margin: 0 auto 24px;
-  background-color: #f5f5f5;
+  background-color: var(--secondary-color);
   border-radius: 8px;
   overflow: hidden;
   display: flex;
@@ -75,7 +82,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  color: #999;
+  color: var(--text-color);
 }
 
 .cover-placeholder view {
@@ -109,7 +116,7 @@
 .category-list .category-item {
   width: calc(33.33% - 10px);
   height: 44px;
-  background-color: #f5f5f5;
+  background-color: var(--primary-color);
   border-radius: var(--border-radius);
   display: flex;
   align-items: center;
@@ -117,9 +124,198 @@
   margin-bottom: 15px;
   font-size: 14px;
   transition: all 0.3s;
+  color: var(--text-color);
 }
 
 .category-list .category-item.active {
   background-color: var(--accent-color);
   color: white;
+}
+
+/* 分类选择器样式 */
+.category-picker {
+  width: 100%;
+}
+
+.selected-categories {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20rpx;
+  padding: 20rpx 0;
+}
+
+.category-tag {
+  display: flex;
+  align-items: center;
+  padding: 12rpx 24rpx;
+  border-radius: 30rpx;
+  font-size: 26rpx;
+  display: flex;
+  align-items: center;
+  transition: all 0.2s;
+  margin: 0 16rpx 16rpx 0;
+  background-color: var(--secondary-color);
+}
+
+.selected-mark {
+  margin-left: 10rpx;
+  font-weight: bold;
+}
+
+.category-tag.active {
+  font-weight: bold;
+  transform: translateY(-2rpx);
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.15);
+}
+
+.remove-category {
+  margin-left: 10rpx;
+  font-size: 28rpx;
+}
+
+.add-category {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 60rpx;
+  height: 60rpx;
+  background: #f5f5f5;
+  border-radius: 30rpx;
+  color: #4CAF50;
+}
+
+/* 分类选择器弹窗样式 */
+.category-picker-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.category-picker-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.category-picker-content {
+  position: relative;
+  width: 80%;
+  max-width: 600rpx;
+  max-height: 80%;
+  background: #fff;
+  border-radius: 20rpx;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.category-picker-header {
+  padding: 30rpx;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+
+.category-picker-title {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #333;
+}
+
+.category-picker-close {
+  font-size: 40rpx;
+  color: #999;
+}
+
+.category-picker-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20rpx 0;
+}
+
+.category-picker-list {
+  padding: 0 30rpx;
+}
+
+.category-picker-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20rpx 0;
+  font-size: 28rpx;
+  color: #333;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+
+.category-picker-item:last-child {
+  border-bottom: none;
+}
+
+.category-picker-item.selected {
+  color: #4CAF50;
+}
+
+.category-check {
+  color: #4CAF50;
+  font-size: 32rpx;
+}
+
+.category-picker-empty {
+  padding: 50rpx 0;
+  text-align: center;
+  color: #999;
+  font-size: 28rpx;
+}
+
+.category-picker-footer {
+  padding: 20rpx 30rpx;
+  border-top: 1rpx solid #f0f0f0;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.category-picker-btn {
+  background: #4CAF50;
+  color: #fff;
+  padding: 15rpx 40rpx;
+  border-radius: 40rpx;
+  font-size: 28rpx;
+}
+
+/* 分类标签样式 */
+.category-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+  margin-top: 10rpx;
+}
+
+.add-tag {
+  border: 1px dashed var(--text-color);
+  background-color: transparent !important;
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+}
+
+/* 表单项目样式 */
+.form-item {
+  margin-bottom: 30rpx;
+}
+
+.form-label {
+  font-size: 28rpx;
+  color: var(--text-color);
+  margin-bottom: 10rpx;
+  font-weight: 500;
 } 

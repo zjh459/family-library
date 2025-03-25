@@ -1,109 +1,85 @@
 <!--pages/bookDetail/bookDetail.wxml-->
-<view class="container page-enter" wx:if="{{book}}">
-  <!-- 非编辑模式：详情展示 -->
-  <block wx:if="{{!isEditMode}}">
-    <!-- 书籍封面和基本信息 -->
-    <view class="book-header card">
-      <view class="book-header-content">
-        <!-- 书籍封面 -->
-        <view class="book-cover">
-          <image src="{{book.coverUrl || '/images/default-cover.png'}}" mode="aspectFill"></image>
-        </view>
-        
-        <!-- 基本信息 -->
-        <view class="book-basic-info">
-          <view class="book-title">{{book.title}}</view>
-          <view class="book-author" wx:if="{{book.author}}">作者：{{book.author}}</view>
-          <view class="book-publisher" wx:if="{{book.publisher}}">出版社：{{book.publisher}}</view>
-          <view class="book-date" wx:if="{{book.publishDate}}">出版日期：{{book.publishDate}}</view>
-          <view class="book-isbn" wx:if="{{book.isbn}}">ISBN：{{book.isbn}}</view>
-          <view class="book-category" wx:if="{{book.category}}">
-            <text class="tag tag-accent">{{book.category}}</text>
-          </view>
-        </view>
+<view class="container">
+  <!-- 查看模式 -->
+  <view wx:if="{{!isEditMode}}">
+    <view class="book-header">
+      <image class="book-cover" src="{{book.coverUrl || '/images/default-cover.png'}}" mode="aspectFill"></image>
+      <view class="book-info">
+        <text class="book-title">{{book.title}}</text>
+        <text class="book-author">{{book.author}}</text>
+        <text class="book-publisher">{{book.publisher}}</text>
+        <text class="book-isbn">ISBN: {{book.isbn}}</text>
       </view>
     </view>
 
-    <!-- 借阅信息 -->
-    <view class="book-borrow-info card" wx:if="{{book.borrowStatus === 'out'}}">
-      <view class="borrow-title">借阅信息</view>
-      <view class="borrow-item">借阅人：{{book.borrower || '未知'}}</view>
-      <view class="borrow-item">借出日期：{{book.borrowDate || '未记录'}}</view>
+    <view class="book-details">
+      <view class="detail-item">
+        <text class="label">出版日期</text>
+        <text class="value">{{book.publishDate || '未知'}}</text>
+      </view>
+      <view class="detail-item">
+        <text class="label">页数</text>
+        <text class="value">{{book.pages || '未知'}}</text>
+      </view>
+      <view class="detail-item">
+        <text class="label">定价</text>
+        <text class="value">{{book.price || '未知'}}</text>
+      </view>
+      <view class="detail-item">
+        <text class="label">装帧</text>
+        <text class="value">{{book.binding || '未知'}}</text>
+      </view>
+      <view class="detail-item">
+        <text class="label">版次</text>
+        <text class="value">{{book.edition || '未知'}}</text>
+      </view>
+      <view class="detail-item">
+        <text class="label">开本</text>
+        <text class="value">{{book.format || '未知'}}</text>
+      </view>
+      <view class="detail-item">
+        <text class="label">分类</text>
+        <text class="value" wx:if="{{book.categories && book.categories.length > 0}}">
+          <text wx:for="{{book.categories}}" wx:key="*this" class="category-tag">{{item}}</text>
+        </text>
+        <text class="value" wx:else>{{book.category || '未分类'}}</text>
+      </view>
     </view>
 
-    <!-- 书籍简介 -->
-    <view class="book-description card" wx:if="{{book.description}}">
-      <view class="desc-title">图书简介</view>
-      <view class="desc-content">{{book.description}}</view>
+    <view class="book-description">
+      <text class="section-title">图书简介</text>
+      <text class="description-text">{{book.description || '暂无简介'}}</text>
     </view>
 
-    <!-- 操作按钮 -->
     <view class="action-buttons">
-      <!-- 在库状态显示借出按钮 -->
-      <block wx:if="{{book.borrowStatus === 'in'}}">
-        <van-button 
-          type="primary" 
-          size="large" 
-          block 
-          color="{{theme.accentColor}}"
-          bind:click="openBorrowPopup"
-          custom-class="main-btn"
-        >借出图书</van-button>
-      </block>
-      
-      <!-- 借出状态显示归还按钮 -->
-      <block wx:else>
-        <van-button 
-          type="primary" 
-          size="large" 
-          block 
-          color="{{theme.accentColor}}"
-          bind:click="openReturnPopup"
-          custom-class="main-btn"
-        >归还图书</van-button>
-      </block>
+      <button class="edit-btn" bindtap="editBook">编辑</button>
+      <button class="manage-btn" bindtap="manageCategories">分类管理</button>
+      <button class="delete-btn" bindtap="deleteBook">删除</button>
+    </view>
+  </view>
 
-      <!-- 副操作按钮 -->
-      <view class="sub-buttons flex-between">
-        <van-button 
-          plain 
-          type="primary" 
-          size="small" 
-          color="{{theme.accentColor}}"
-          bind:click="toggleEditMode"
-        >编辑信息</van-button>
-        
-        <van-button 
-          plain 
-          type="danger" 
-          size="small" 
-          bind:click="openDeleteConfirm"
-        >删除图书</van-button>
+  <!-- 编辑模式 -->
+  <view wx:else class="edit-mode">
+    <!-- 书籍封面 -->
+    <view class="cover-upload" bindtap="uploadCover">
+      <image 
+        wx:if="{{editForm.coverUrl}}" 
+        src="{{editForm.coverUrl}}" 
+        mode="aspectFill" 
+        class="cover-image"
+      ></image>
+      <view wx:else class="cover-placeholder">
+        <view class="icon">+</view>
+        <view>上传封面</view>
       </view>
     </view>
-  </block>
-
-  <!-- 编辑模式：表单编辑 -->
-  <block wx:else>
+    
+    <!-- 编辑表单 -->
     <view class="edit-form">
-      <!-- 书籍封面 -->
-      <view class="cover-upload" bindtap="uploadCover">
-        <image 
-          wx:if="{{editForm.coverUrl}}" 
-          src="{{editForm.coverUrl}}" 
-          mode="aspectFill" 
-          class="cover-image"
-        ></image>
-        <view wx:else class="cover-placeholder">
-          <van-icon name="photo-o" size="24px" />
-          <view>上传封面</view>
-        </view>
-      </view>
-      
-      <!-- 书籍表单 -->
-      <van-cell-group title="基本信息">
+      <van-cell-group>
         <van-field
           value="{{ editForm.title }}"
+          model:value="{{ editForm.title }}"
           required
           clearable
           label="书名"
@@ -114,6 +90,7 @@
         
         <van-field
           value="{{ editForm.author }}"
+          model:value="{{ editForm.author }}"
           clearable
           label="作者"
           placeholder="请输入作者"
@@ -123,6 +100,7 @@
         
         <van-field
           value="{{ editForm.publisher }}"
+          model:value="{{ editForm.publisher }}"
           clearable
           label="出版社"
           placeholder="请输入出版社"
@@ -132,6 +110,7 @@
         
         <van-field
           value="{{ editForm.publishDate }}"
+          model:value="{{ editForm.publishDate }}"
           clearable
           label="出版日期"
           placeholder="如: 2020-01"
@@ -141,6 +120,7 @@
         
         <van-field
           value="{{ editForm.isbn }}"
+          model:value="{{ editForm.isbn }}"
           clearable
           label="ISBN"
           placeholder="请输入ISBN编号"
@@ -149,16 +129,58 @@
         />
         
         <van-field
-          value="{{ currentCategory }}"
-          label="分类"
-          placeholder="请选择分类"
-          readonly
-          bindtap="openCategoryPicker"
-          right-icon="arrow"
+          value="{{ editForm.pages }}"
+          model:value="{{ editForm.pages }}"
+          clearable
+          label="页数"
+          placeholder="请输入页数"
+          bind:change="onInputChange"
+          data-field="pages"
+        />
+        
+        <van-field
+          value="{{ editForm.price }}"
+          model:value="{{ editForm.price }}"
+          clearable
+          label="定价"
+          placeholder="请输入定价"
+          bind:change="onInputChange"
+          data-field="price"
+        />
+        
+        <van-field
+          value="{{ editForm.binding }}"
+          model:value="{{ editForm.binding }}"
+          clearable
+          label="装帧"
+          placeholder="请输入装帧信息"
+          bind:change="onInputChange"
+          data-field="binding"
+        />
+        
+        <van-field
+          value="{{ editForm.edition }}"
+          model:value="{{ editForm.edition }}"
+          clearable
+          label="版次"
+          placeholder="请输入版次"
+          bind:change="onInputChange"
+          data-field="edition"
+        />
+        
+        <van-field
+          value="{{ editForm.format }}"
+          model:value="{{ editForm.format }}"
+          clearable
+          label="开本"
+          placeholder="请输入开本信息"
+          bind:change="onInputChange"
+          data-field="format"
         />
         
         <van-field
           value="{{ editForm.description }}"
+          model:value="{{ editForm.description }}"
           type="textarea"
           clearable
           label="简介"
@@ -168,113 +190,37 @@
           autosize="{{ {maxHeight: 100, minHeight: 50} }}"
         />
       </van-cell-group>
-      
-      <!-- 编辑按钮 -->
-      <view class="edit-buttons">
-        <van-button 
-          type="primary" 
-          block 
-          bind:click="saveEdit"
-          color="{{theme.accentColor}}"
-          custom-class="save-btn"
-        >保存修改</van-button>
-        
-        <van-button 
-          plain 
-          block 
-          bind:click="cancelEdit"
-          custom-class="cancel-btn"
-        >取消</van-button>
-      </view>
     </view>
-  </block>
-
-  <!-- 借出弹窗 -->
-  <van-popup
-    show="{{ showBorrowPopup }}"
-    position="bottom"
-    round
-    bind:close="closeBorrowPopup"
-  >
-    <view class="popup-content">
-      <view class="popup-title">借出图书</view>
-      <van-field
-        value="{{ borrower }}"
-        label="借阅人"
-        placeholder="请输入借阅人姓名"
-        bind:change="onBorrowerInput"
-        required
-      />
-      <view class="popup-buttons">
-        <van-button 
-          type="primary" 
-          block 
-          color="{{theme.accentColor}}"
-          bind:click="confirmBorrow"
-        >确认借出</van-button>
-      </view>
+    
+    <!-- 底部按钮 -->
+    <view class="edit-buttons">
+      <button class="save-btn" bindtap="saveEdit" type="primary">保存</button>
+      <button class="cancel-btn" bindtap="cancelEdit">取消</button>
     </view>
-  </van-popup>
+  </view>
 
-  <!-- 归还弹窗 -->
-  <van-popup
-    show="{{ showReturnPopup }}"
-    position="bottom"
-    round
-    bind:close="closeReturnPopup"
-  >
-    <view class="popup-content">
-      <view class="popup-title">归还图书</view>
-      <view class="popup-info">
-        <view>借阅人：{{book.borrower}}</view>
-        <view>借出日期：{{book.borrowDate}}</view>
+  <!-- 分类管理弹窗 -->
+  <view class="category-modal" wx:if="{{showCategoryModal}}">
+    <view class="category-modal-overlay" bindtap="closeCategoryModal"></view>
+    <view class="category-modal-content">
+      <view class="category-modal-header">
+        <text class="category-modal-title">分类管理</text>
+        <text class="category-modal-close" bindtap="closeCategoryModal">×</text>
       </view>
-      <view class="popup-buttons">
-        <van-button 
-          type="primary" 
-          block 
-          color="{{theme.accentColor}}"
-          bind:click="confirmReturn"
-        >确认归还</van-button>
-      </view>
-    </view>
-  </van-popup>
-
-  <!-- 删除确认弹窗 -->
-  <van-dialog
-    use-slot
-    title="删除图书"
-    show="{{ showDeleteConfirm }}"
-    show-cancel-button
-    confirm-button-color="{{theme.accentColor}}"
-    bind:close="closeDeleteConfirm"
-    bind:confirm="confirmDelete"
-  >
-    <view class="delete-dialog-content">
-      确定要删除《{{book.title}}》吗？此操作不可恢复。
-    </view>
-  </van-dialog>
-
-  <!-- 分类选择弹窗 -->
-  <van-popup
-    show="{{ showCategoryPicker }}"
-    position="bottom"
-    bind:close="closeCategoryPicker"
-    round
-  >
-    <view class="category-popup">
-      <view class="category-title">选择分类</view>
-      <view class="category-list">
-        <view 
-          class="category-item {{currentCategory === item ? 'active' : ''}}" 
-          wx:for="{{categories}}" 
-          wx:key="*this"
-          bindtap="onCategorySelected"
-          data-value="{{item}}"
-        >
-          {{item}}
+      <view class="category-modal-body">
+        <view class="category-list">
+          <block wx:for="{{categoriesWithSelection}}" wx:key="_id" wx:for-index="idx">
+            <view class="category-item {{item.selected ? 'active' : ''}}" 
+                  bindtap="toggleCategory" data-index="{{idx}}">
+              <text>{{item.name}}</text>
+              <text class="category-check" wx:if="{{item.selected}}">✓</text>
+            </view>
+          </block>
         </view>
       </view>
+      <view class="category-modal-footer">
+        <button class="save-categories-btn" bindtap="saveCategories">保存</button>
+      </view>
     </view>
-  </van-popup>
+  </view>
 </view> 

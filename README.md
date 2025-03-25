@@ -41,19 +41,27 @@ project/
 
 1. 克隆项目
 ```bash
-git clone [项目地址]
+git clone https://github.com/zjh459/family-library.git
 ```
 
-2. 安装依赖
+2. 配置敏感信息
+```bash
+# 复制示例配置文件
+cp config.js.example config.js
+
+# 编辑 config.js 文件，填入您的云环境ID和API密钥
+```
+
+3. 安装依赖
 ```bash
 npm install
 ```
 
-3. 在微信开发者工具中导入项目
+4. 在微信开发者工具中导入项目
 
-4. 点击"工具" -> "构建 npm"
+5. 点击"工具" -> "构建 npm"
 
-5. 编译运行项目
+6. 编译运行项目
 
 ## 贡献指南
 

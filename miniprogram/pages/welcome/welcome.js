@@ -1,15 +1,20 @@
+const app = getApp();
+
 Page({
   data: {
-    theme: {
-      accentColor: '#8FBC8F'  // 与您的主题色保持一致
-    }
+    theme: {}
   },
 
   onLoad() {
-    // 设置2秒后自动跳转
+    // 设置主题
+    this.setData({
+      theme: app.globalData.theme
+    });
+    
+    // 设置3秒后自动跳转
     this.autoNavigateTimer = setTimeout(() => {
       this.enterApp();
-    }, 2000);
+    }, 3000);
   },
 
   onUnload() {
@@ -25,7 +30,7 @@ Page({
       clearTimeout(this.autoNavigateTimer);
     }
     wx.switchTab({
-      url: '/miniprogram/pages/index/index'
+      url: '../index/index'
     });
   }
 }) 

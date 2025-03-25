@@ -1,0 +1,17 @@
+// 小程序配置文件 - 示例文件
+// 请复制此文件为 config.js 并填入您实际的配置信息
+
+module.exports = {
+  // 云环境配置
+  cloud: {
+    env: 'your-cloud-env-id', // 请替换为您的云环境ID
+  },
+  
+  // API配置
+  api: {
+    tanshu: {
+      url: 'https://api.tanshuapi.com/api/isbn_base/v1/index',
+      key: 'your-api-key' // 请替换为您的API密钥
+    }
+  }
+} 
