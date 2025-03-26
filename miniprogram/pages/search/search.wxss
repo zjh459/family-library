@@ -261,10 +261,12 @@
 .reset-button, .apply-button {
   flex: 1;
   height: 80rpx;
-  line-height: 80rpx;
-  font-size: 28rpx;
   border-radius: 40rpx;
-  text-align: center;
+  font-size: 28rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
 }
 
 .reset-button {
