@@ -132,12 +132,20 @@
   font-size: 13px;
   color: #666;
   margin-bottom: 4px;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .book-publisher {
   font-size: 12px;
   color: #999;
   margin-bottom: 4px;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .book-meta {
@@ -238,6 +246,10 @@
   border-radius: 30rpx;
   font-size: 24rpx;
   margin-bottom: 10rpx;
+  max-width: 180rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .filter-option.active {
@@ -313,4 +325,13 @@
 .tag-accent {
   background-color: var(--accent-color);
   color: white;
+}
+
+/* 全局文本省略样式 */
+.text-ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 200px; /* 确保有足够的宽度显示文本 */
+  width: 100%;
 } 

@@ -79,6 +79,8 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  will-change: transform;
+  transform: translateZ(0);
 }
 
 .book-cover {
@@ -87,6 +89,12 @@
   border-radius: 8rpx;
   box-shadow: 0 4rpx 8rpx rgba(0, 0, 0, 0.1);
   margin-bottom: 10rpx;
+  background-color: #f0f0f0;
+  position: relative;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  will-change: opacity;
+  overflow: hidden;
 }
 
 .book-cover image {
@@ -222,6 +230,11 @@
   color: var(--text-color);
 }
 
+.book-count {
+  font-size: 24rpx;
+  color: #999;
+}
+
 .view-more {
   font-size: 24rpx;
   color: var(--accent-color);
@@ -302,4 +315,62 @@
 
 .sort-option.active {
   color: var(--accent-color);
+}
+
+/* 图片占位符动画 */
+@keyframes placeholder-shimmer {
+  0% {
+    background-position: -400rpx 0;
+  }
+  100% {
+    background-position: 400rpx 0;
+  }
+}
+
+.placeholder {
+  animation-duration: 1.5s;
+  animation-fill-mode: forwards;
+  animation-iteration-count: infinite;
+  animation-name: placeholder-shimmer;
+  animation-timing-function: linear;
+  background: linear-gradient(to right, #f0f0f0 8%, #e0e0e0 18%, #f0f0f0 33%);
+  background-size: 800rpx 104rpx;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+/* 加载更多指示器 */
+.load-more {
+  text-align: center;
+  padding: 20rpx;
+  color: #999;
+  font-size: 24rpx;
+}
+
+/* 优化卡片过渡效果 */
+.book-item {
+  transition: transform 0.2s ease-out;
+}
+
+.book-item:active {
+  transform: translateZ(0) scale(0.95);
+}
+
+.book-cover::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.05);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.book-item:active .book-cover::after {
+  opacity: 1;
 } 

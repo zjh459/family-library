@@ -169,6 +169,7 @@ Page({
       // 未分类图书的查询条件: 
       // 1. 没有categories数组 且 没有category字段
       // 2. 有categories数组但为空
+      // 3. 有category字段但为空字符串
       query = {
         $or: [
           {
@@ -179,6 +180,10 @@ Page({
           {
             // categories数组为空
             categories: { $size: 0 }
+          },
+          {
+            // category为空字符串
+            category: ""
           }
         ]
       }

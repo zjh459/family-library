@@ -22,6 +22,7 @@
   <view class="section">
     <view class="section-header">
       <view class="section-title">按分类浏览</view>
+      <view class="book-count">共{{totalBooks}}本</view>
     </view>
     <view class="category-list">
       <view 
@@ -49,11 +50,29 @@
     <view class="book-grid">
       <block wx:if="{{filteredBooks.length > 0}}">
         <view class="book-item" wx:for="{{filteredBooks}}" wx:key="_id" bindtap="goToDetail" data-id="{{item._id}}">
-          <image class="book-cover" src="{{item.coverUrl || '../../images/default-cover.png'}}" mode="aspectFill"></image>
+          <image class="book-cover" 
+                 src="{{item.coverUrl || '../../images/default-cover.png'}}" 
+                 mode="aspectFill"
+                 lazy-load="{{true}}"
+                 show-menu-by-longpress="{{true}}"
+                 binderror="onImageError"
+                 bindload="onLoadImage"
+                 data-index="{{index}}">
+            <view class="placeholder" wx:if="{{!item.coverLoaded}}"></view>
+          </image>
           <view class="book-title">{{item.title}}</view>
         </view>
       </block>
       <view wx:else class="empty-tip">暂无图书，点击右下角"+"添加</view>
+    </view>
+    
+    <!-- 加载更多 -->
+    <view class="load-more" wx:if="{{filteredBooks.length > 0}}">
+      <view wx:if="{{loadingMore}}">
+        <van-loading size="24rpx" color="#999">加载中...</van-loading>
+      </view>
+      <view wx:elif="{{!hasMoreData}}">—— 已加载全部 ——</view>
+      <view wx:else>上拉加载更多</view>
     </view>
   </view>
 

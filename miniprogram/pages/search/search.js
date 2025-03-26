@@ -65,21 +65,75 @@ Page({
   async loadFiltersData() {
     try {
       const db = wx.cloud.database();
-      const booksRes = await db.collection('books').get();
+      // 增加获取数据上限，确保获取所有图书
+      const countResult = await db.collection('books').count();
+      const total = countResult.total;
       
-      if (booksRes.data && booksRes.data.length > 0) {
+      // 分批获取数据
+      const batchSize = 100;
+      const batchTimes = Math.ceil(total / batchSize);
+      const tasks = [];
+      
+      for (let i = 0; i < batchTimes; i++) {
+        const promise = db.collection('books')
+          .skip(i * batchSize)
+          .limit(batchSize)
+          .get();
+        tasks.push(promise);
+      }
+      
+      const results = await Promise.all(tasks);
+      let books = [];
+      results.forEach(res => {
+        books = books.concat(res.data);
+      });
+      
+      if (books.length > 0) {
         // 提取唯一的作者和出版社
         const authors = new Set(['全部']);
         const publishers = new Set(['全部']);
         
-        booksRes.data.forEach(book => {
-          if (book.author) authors.add(book.author);
+        // 处理每本书的作者和出版社
+        books.forEach(book => {
+          // 处理作者，支持多作者的情况
+          if (book.author) {
+            // 如果作者字段包含逗号、分号或其他分隔符，可能是多作者
+            if (typeof book.author === 'string' && (book.author.includes(',') || book.author.includes('、') || book.author.includes(';'))) {
+              // 分割多作者并单独添加
+              const authorNames = book.author.split(/[,、;]/);
+              authorNames.forEach(name => {
+                const trimmedName = name.trim();
+                if (trimmedName) authors.add(trimmedName);
+              });
+            } else {
+              // 单作者情况，去除可能的空格
+              authors.add(book.author.trim());
+            }
+          }
+          
           if (book.publisher) publishers.add(book.publisher);
         });
         
+        // 转换为数组并排序
+        const authorsArray = Array.from(authors);
+        const publishersArray = Array.from(publishers);
+        
+        // 将"全部"选项放到第一位
+        authorsArray.sort((a, b) => {
+          if (a === '全部') return -1;
+          if (b === '全部') return 1;
+          return a.localeCompare(b, 'zh');
+        });
+        
+        publishersArray.sort((a, b) => {
+          if (a === '全部') return -1;
+          if (b === '全部') return 1;
+          return a.localeCompare(b, 'zh');
+        });
+        
         this.setData({
-          authors: Array.from(authors),
-          publishers: Array.from(publishers)
+          authors: authorsArray,
+          publishers: publishersArray
         });
       }
     } catch (err) {
@@ -143,7 +197,11 @@ Page({
     }
     
     if (this.data.currentAuthor && this.data.currentAuthor !== '全部') {
-      filterConditions.author = this.data.currentAuthor;
+      // 使用正则表达式匹配作者，以支持多作者的情况
+      filterConditions.author = db.RegExp({
+        regexp: this.data.currentAuthor,
+        options: 'i'
+      });
     }
     
     if (this.data.currentPublisher && this.data.currentPublisher !== '全部') {

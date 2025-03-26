@@ -54,6 +54,8 @@ Page({
     
     console.log('开始加载书籍详情，ID:', this.data.bookId);
     
+    this.setData({ loading: true });
+    
     db.collection('books')
       .doc(this.data.bookId)
       .get()
@@ -64,6 +66,23 @@ Page({
         const book = bookUtils.processCoverUrl(res.data);
         
         console.log('处理后的书籍信息:', book);
+        
+        // 确保书籍ID在本地和云端是一致的
+        if (book && book._id) {
+          // 检查书籍是否存在于全局数据中
+          const globalBookIndex = app.globalData.books.findIndex(b => 
+            (b._id && b._id.toString() === book._id.toString()) || 
+            (b.id && b.id.toString() === book._id.toString())
+          );
+          
+          // 如果不在全局数据中，添加到全局
+          if (globalBookIndex === -1) {
+            console.log('书籍存在于云端但不在本地缓存中，添加到全局数据');
+            book.id = book._id; // 确保id和_id一致
+            app.globalData.books.unshift(book);
+            app.saveBooks();
+          }
+        }
         
         that.setData({
           book: book,
@@ -78,6 +97,14 @@ Page({
       .catch(err => {
         console.error('获取图书详情失败', err);
         that.setData({ loading: false });
+        
+        // 检查是否是因为书籍不存在
+        if (err.errCode === -1 || err.errMsg.includes('not exist') || err.errMsg.includes('not found')) {
+          console.warn('书籍在云数据库中不存在，可能已被删除');
+          this.showBookNotFound();
+          return;
+        }
+        
         wx.showToast({
           title: '获取图书详情失败',
           icon: 'none'
@@ -546,46 +573,58 @@ Page({
           });
           
           try {
+            console.log('开始删除图书, ID:', this.data.bookId);
             const result = app.deleteBook(this.data.bookId);
             
             // 处理可能的Promise返回值
             if (result instanceof Promise) {
               result.then(success => {
                 wx.hideLoading();
-                if (success) {
-                  wx.showToast({
-                    title: '删除成功',
-                    icon: 'success'
+                console.log('删除结果:', success);
+                
+                // 确保分类计数更新
+                const app = getApp();
+                if (app.syncCategoriesCount) {
+                  console.log('开始同步分类计数');
+                  app.syncCategoriesCount().then(() => {
+                    console.log('分类计数同步完成');
+                  }).catch(err => {
+                    console.error('分类计数同步失败:', err);
                   });
-                  setTimeout(() => {
-                    wx.navigateBack();
-                  }, 1500);
-                } else {
-                  // 云同步失败但本地删除成功的情况，也算成功
-                  wx.showToast({
-                    title: '本地删除成功',
-                    icon: 'success'
-                  });
-                  setTimeout(() => {
-                    wx.navigateBack();
-                  }, 1500);
                 }
-              }).catch(err => {
-                wx.hideLoading();
-                console.error('删除图书时出错:', err);
-                // 云同步错误也视为删除成功
+                
                 wx.showToast({
-                  title: '本地删除成功',
+                  title: '删除成功',
                   icon: 'success'
                 });
+                
                 setTimeout(() => {
                   wx.navigateBack();
                 }, 1500);
+              }).catch(err => {
+                wx.hideLoading();
+                console.error('删除图书时出错:', err);
+                
+                wx.showToast({
+                  title: '删除失败',
+                  icon: 'none'
+                });
               });
             } else {
               // 同步返回结果的处理
               wx.hideLoading();
               if (result) {
+                // 确保分类计数更新
+                const app = getApp();
+                if (app.syncCategoriesCount) {
+                  console.log('开始同步分类计数');
+                  app.syncCategoriesCount().then(() => {
+                    console.log('分类计数同步完成');
+                  }).catch(err => {
+                    console.error('分类计数同步失败:', err);
+                  });
+                }
+                
                 wx.showToast({
                   title: '删除成功',
                   icon: 'success'
@@ -777,6 +816,10 @@ Page({
           console.log('云数据库分类更新成功');
           // 更新本地数据
           app.updateBook(this.data.bookId, updateInfo);
+          
+          // 分类变更后，更新所有分类的计数
+          this.updateCategoriesCount(this.data.book.categories || [], selectedCategories);
+          
           this.closeCategoryModal();
           this.loadBookDetail(); // 重新加载图书详情，确保数据一致
           wx.hideLoading();
@@ -797,6 +840,10 @@ Page({
     } else {
       // 仅本地更新
       app.updateBook(this.data.bookId, updateInfo);
+      
+      // 分类变更后，更新所有分类的计数
+      this.updateCategoriesCount(this.data.book.categories || [], selectedCategories);
+      
       this.closeCategoryModal();
       this.loadBookDetail(); // 重新加载以确保数据一致
       wx.hideLoading();
@@ -805,6 +852,93 @@ Page({
         icon: 'success'
       });
     }
+  },
+  
+  // 更新分类计数
+  updateCategoriesCount(oldCategories, newCategories) {
+    console.log('更新分类计数，原分类:', oldCategories, '新分类:', newCategories);
+    
+    const db = wx.cloud.database();
+    const allCategories = [...new Set([...oldCategories, ...newCategories])];
+    
+    // 对每个受影响的分类进行处理
+    allCategories.forEach(categoryName => {
+      // 检查分类是否在旧的列表中但不在新的列表中，则减1
+      const wasInOld = oldCategories.includes(categoryName);
+      const isInNew = newCategories.includes(categoryName);
+      
+      console.log(`处理分类[${categoryName}], 原列表中:${wasInOld}, 新列表中:${isInNew}`);
+      
+      // 查询该分类相关的所有图书
+      db.collection('books')
+        .where({
+          categories: categoryName
+        })
+        .count()
+        .then(res => {
+          // 获取该分类的实际图书数量
+          const actualCount = res.total;
+          console.log(`分类[${categoryName}]的实际图书数量:`, actualCount);
+          
+          // 查询该分类下具体包含哪些图书(用于调试)
+          db.collection('books')
+            .where({
+              categories: categoryName
+            })
+            .field({
+              _id: true,
+              title: true,
+              categories: true
+            })
+            .get()
+            .then(booksRes => {
+              console.log(`分类[${categoryName}]包含以下图书:`, 
+                booksRes.data.map(b => b.title));
+            });
+          
+          // 更新数据库中的计数
+          db.collection('categories')
+            .where({
+              name: categoryName
+            })
+            .get()
+            .then(catRes => {
+              if (catRes.data && catRes.data.length > 0) {
+                const categoryId = catRes.data[0]._id;
+                const currentCount = catRes.data[0].count || 0;
+                
+                console.log(`分类[${categoryName}]当前计数为:${currentCount}, 更新为:${actualCount}`);
+                
+                // 强制更新为实际计算的数量
+                db.collection('categories').doc(categoryId).update({
+                  data: {
+                    count: actualCount
+                  }
+                }).then(() => {
+                  console.log(`分类[${categoryName}]计数已更新为:`, actualCount);
+                }).catch(err => {
+                  console.error(`更新分类[${categoryName}]计数失败:`, err);
+                  
+                  // 如果更新失败，尝试使用set完全覆盖文档
+                  const fullCategory = {...catRes.data[0], count: actualCount};
+                  db.collection('categories').doc(categoryId).set({
+                    data: fullCategory
+                  }).then(() => {
+                    console.log(`使用set方法更新分类[${categoryName}]计数成功`);
+                  }).catch(setErr => {
+                    console.error(`使用set方法更新分类[${categoryName}]计数失败:`, setErr);
+                  });
+                });
+              }
+            })
+            .catch(err => {
+              console.error(`查询分类[${categoryName}]失败:`, err);
+            });
+        })
+        .catch(err => {
+          console.error(`获取分类[${categoryName}]的图书数量失败:`, err);
+        });
+    });
   },
 
   // 加载分类列表

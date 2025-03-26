@@ -22,6 +22,33 @@ Page({
     this.loadCategories()
   },
 
+  // 同步所有分类计数
+  syncAllCategories() {
+    wx.showLoading({
+      title: '同步中...'
+    })
+    
+    const app = getApp()
+    // 调用app.js中的同步分类计数方法
+    app.syncCategoriesCount()
+      .then(() => {
+        wx.hideLoading()
+        wx.showToast({
+          title: '同步成功'
+        })
+        // 重新加载分类列表以显示更新后的计数
+        this.loadCategories()
+      })
+      .catch(err => {
+        console.error('同步分类计数失败:', err)
+        wx.hideLoading()
+        wx.showToast({
+          title: '同步失败',
+          icon: 'none'
+        })
+      })
+  },
+
   async loadCategories() {
     this.setData({ loading: true })
     try {
@@ -30,67 +57,63 @@ Page({
         .orderBy('createTime', 'desc')
         .get()
       
-      // 获取所有图书
-      const booksRes = await db.collection('books').get()
-      const books = booksRes.data || []
-      
-      console.log('获取到的图书总数:', books.length)
-      
-      // 计算每个分类的图书数量
-      const categories = categoriesRes.data.map(category => {
-        const count = books.filter(book => {
-          // 检查是否包含此分类
-          if (book.categories && Array.isArray(book.categories)) {
-            return book.categories.includes(category.name)
-          } else if (book.category) {
-            // 兼容旧数据结构
-            return book.category === category.name
-          }
-          return false
-        }).length
-        
-        console.log(`分类 [${category.name}] 的图书数量: ${count}`)
-        
-        return {
-          ...category,
-          count
-        }
-      })
-      
-      // 计算未分类的图书数量
-      const uncategorizedCount = books.filter(book => {
-        if (!book.categories && !book.category) {
-          // 没有任何分类信息的图书
-          return true
-        }
-        if (book.categories && Array.isArray(book.categories) && book.categories.length === 0) {
-          // 分类数组为空的图书
-          return true
-        }
-        return false
-      }).length
-      
-      console.log(`未分类图书数量: ${uncategorizedCount}`)
+      // 直接使用数据库中的分类数据，包括count值
+      const categories = categoriesRes.data;
       
       // 添加未分类到分类列表最前面
+      // 获取未分类图书数量 - 可以考虑使用数据库中的值，或计算真实值
+      const uncategorizedCount = await this.getUncategorizedCount();
+      
       categories.unshift({
         _id: UNCATEGORIZED_ID,
         name: UNCATEGORIZED_NAME,
         count: uncategorizedCount,
         isSystem: true // 标记为系统分类，不可编辑删除
-      })
+      });
       
       this.setData({
         categories,
         loading: false
-      })
+      });
     } catch (err) {
-      console.error('加载分类失败：', err)
+      console.error('加载分类失败：', err);
       wx.showToast({
         title: '加载分类失败',
         icon: 'none'
-      })
-      this.setData({ loading: false })
+      });
+      this.setData({ loading: false });
+    }
+  },
+  
+  // 获取未分类的图书数量
+  async getUncategorizedCount() {
+    try {
+      // 查询没有categories字段或categories为空数组的图书
+      const res = await db.collection('books').where({
+        categories: _.eq([])
+      }).count();
+      
+      const res2 = await db.collection('books').where({
+        categories: _.eq(null)
+      }).count();
+      
+      const res3 = await db.collection('books').where({
+        categories: _.eq(undefined)
+      }).count();
+      
+      // 查询既没有categories也没有category的图书
+      const res4 = await db.collection('books').where({
+        categories: _.exists(false),
+        category: _.exists(false)
+      }).count();
+      
+      const total = res.total + res2.total + res3.total + res4.total;
+      console.log(`未分类图书数量: ${total} (空数组:${res.total}, null:${res2.total}, undefined:${res3.total}, 不存在:${res4.total})`);
+      
+      return total;
+    } catch (err) {
+      console.error('获取未分类图书数量失败:', err);
+      return 0;
     }
   },
 

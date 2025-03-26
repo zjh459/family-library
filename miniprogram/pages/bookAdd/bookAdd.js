@@ -553,291 +553,306 @@ Page({
     });
   },
   
-  // 保存图书
+  // 完成保存
+  saveToCloud() {
+    console.log('保存到云端的图书数据：', this.data.bookForm);
+    
+    // 验证isbn唯一性
+    if (this.data.bookForm.isbn) {
+      wx.cloud.database().collection('books')
+        .where({
+          isbn: this.data.bookForm.isbn,
+          _id: wx.cloud.database().command.neq(this.data.bookId || '') // 排除当前编辑的图书
+        })
+        .count()
+        .then(res => {
+          if (res.total > 0) {
+            wx.showModal({
+              title: '重复ISBN',
+              content: '系统中已存在相同ISBN的图书，确定继续添加吗？',
+              success: (res) => {
+                if (res.confirm) {
+                  this.performSave();
+                }
+              }
+            });
+          } else {
+            this.performSave();
+          }
+        })
+        .catch(err => {
+          console.error('验证ISBN唯一性失败:', err);
+          // 继续保存
+          this.performSave();
+        });
+    } else {
+      this.performSave();
+    }
+  },
+  
+  // 保存按钮点击处理函数
   saveBook() {
-    console.log('开始保存图书...');
+    console.log('点击了保存按钮');
+    // 表单验证
+    const bookForm = this.data.bookForm;
     
-    // 验证必填项
-    if (!this.data.bookForm.title) {
-      this.showError('请输入书名');
-      return;
-    }
-    
-    // 防抖：检查是否在保存中和时间间隔
-    if (this.data.isSaving) {
-      console.log('保存操作正在进行中，请勿重复提交');
+    if (!bookForm.title || bookForm.title.trim() === '') {
       wx.showToast({
-        title: '请勿重复提交',
+        title: '请输入书名',
         icon: 'none'
       });
       return;
     }
     
-    // 检查是否短时间内重复提交（3秒内）
-    const now = Date.now();
-    if (now - this.data.lastSubmitTime < 3000) {
-      console.log('提交过于频繁，请稍后再试');
-      wx.showToast({
-        title: '操作过于频繁',
-        icon: 'none'
-      });
-      return;
-    }
-    
-    // 设置保存状态和时间戳
-    this.setData({
-      isSaving: true,
-      lastSubmitTime: now
-    });
-    
-    // 检查ISBN是否为空
-    const isbn = this.data.bookForm.isbn ? this.data.bookForm.isbn.trim() : '';
-    console.log('检查ISBN:', isbn);
-    
+    // 执行保存操作
+    this.performSave();
+  },
+  
+  // 执行实际保存操作
+  performSave() {
     wx.showLoading({
       title: '保存中...',
     });
     
-    // 如果有ISBN，先检查是否存在相同ISBN的书籍
-    if (isbn) {
-      console.log('ISBN不为空，开始检查是否存在重复...');
-      const db = wx.cloud.database();
-      
-      db.collection('books')
-        .where({
-          isbn: isbn
-        })
-        .get()
+    // 记录旧的分类，用于更新分类计数
+    let oldCategories = [];
+    
+    // 如果已有ID，表示是编辑模式
+    if (this.data.bookId) {
+      // 获取原图书信息以获取旧的分类
+      wx.cloud.database().collection('books').doc(this.data.bookId).get()
         .then(res => {
-          console.log('ISBN查询结果:', res.data);
-          if (res.data && res.data.length > 0) {
-            // 已存在相同ISBN的书籍
-            wx.hideLoading();
-            this.setData({ isSaving: false }); // 重置保存状态
-            
-            // 获取已存在书籍的ID
-            const existingBookId = res.data[0]._id;
-            console.log('找到已存在的书籍ID:', existingBookId);
-            
-            wx.showModal({
-              title: '提示',
-              content: '该书籍已存在，是否查看详情？',
-              confirmText: '查看详情',
-              cancelText: '继续编辑',
-              success: (result) => {
-                if (result.confirm) {
-                  // 用户选择查看详情，跳转到书籍详情页
-                  console.log('用户选择查看详情，准备跳转到:', `/pages/bookDetail/bookDetail?id=${existingBookId}`);
-                  
-                  // 使用switchTab+navigateTo的组合解决可能的跳转问题
-                  try {
-                    wx.navigateTo({
-                      url: `../bookDetail/bookDetail?id=${existingBookId}`,
-                      success: function() {
-                        console.log('跳转成功');
-                      },
-                      fail: function(error) {
-                        console.error('navigateTo失败:', error);
-                        
-                        // 如果直接跳转失败，可能是在tabBar页面，尝试用redirectTo
-                        wx.redirectTo({
-                          url: `../bookDetail/bookDetail?id=${existingBookId}`,
-                          success: function() {
-                            console.log('redirectTo跳转成功');
-                          },
-                          fail: function(err) {
-                            console.error('redirectTo也失败:', err);
-                            
-                            // 最后尝试使用reLaunch
-                            wx.reLaunch({
-                              url: `../bookDetail/bookDetail?id=${existingBookId}`,
-                              success: function() {
-                                console.log('reLaunch跳转成功');
-                              },
-                              fail: function(e) {
-                                console.error('所有跳转方式都失败:', e);
-                              }
-                            });
-                          }
-                        });
-                      }
-                    });
-                  } catch (err) {
-                    console.error('跳转过程中发生异常:', err);
-                  }
-                } else {
-                  console.log('用户选择继续编辑');
-                }
-              }
-            });
-            return;
-          } else {
-            // 如果ISBN没有重复，再检查标题+作者组合是否重复
-            this.checkTitleAuthorDuplicate();
+          if (res.data) {
+            oldCategories = res.data.categories || [];
           }
+          this.continuePerformSave(oldCategories);
         })
         .catch(err => {
-          console.error('检查ISBN失败', err);
-          this.setData({ isSaving: false }); // 重置保存状态
-          wx.hideLoading();
-          wx.showToast({
-            title: '检查ISBN失败',
-            icon: 'none'
-          });
+          console.error('获取原图书信息失败:', err);
+          this.continuePerformSave([]);
         });
     } else {
-      // 没有ISBN，检查标题+作者组合是否重复
-      this.checkTitleAuthorDuplicate();
+      this.continuePerformSave([]);
     }
   },
   
-  // 检查标题+作者组合是否重复
-  checkTitleAuthorDuplicate() {
-    const title = this.data.bookForm.title.trim();
-    const author = this.data.bookForm.author.trim();
-    
-    // 如果没有标题或作者，直接保存
-    if (!title || !author) {
-      this.saveBookToCloud();
-      return;
-    }
-    
-    console.log('检查标题+作者组合是否重复:', title, author);
-    
-    const db = wx.cloud.database();
-    const _ = db.command;
-    
-    db.collection('books')
-      .where({
-        title: title,
-        author: author
-      })
-      .get()
-      .then(res => {
-        console.log('标题+作者查询结果:', res.data);
-        if (res.data && res.data.length > 0) {
-          // 已存在相同标题+作者的书籍
-          wx.hideLoading();
-          this.setData({ isSaving: false }); // 重置保存状态
-          
-          // 获取已存在书籍的ID
-          const existingBookId = res.data[0]._id;
-          console.log('找到已存在的书籍ID:', existingBookId);
-          
-          wx.showModal({
-            title: '提示',
-            content: '已存在相同标题和作者的书籍，可能是重复添加，是否查看详情？',
-            confirmText: '查看详情',
-            cancelText: '仍然添加',
-            success: (result) => {
-              if (result.confirm) {
-                // 用户选择查看详情，跳转到书籍详情页
-                console.log('用户选择查看详情，准备跳转到:', `../bookDetail/bookDetail?id=${existingBookId}`);
-                
-                try {
-                  wx.navigateTo({
-                    url: `../bookDetail/bookDetail?id=${existingBookId}`,
-                    success: function() {
-                      console.log('跳转成功');
-                    },
-                    fail: function(error) {
-                      console.error('navigateTo失败:', error);
-                      
-                      // 尝试其他跳转方式
-                      wx.redirectTo({
-                        url: `../bookDetail/bookDetail?id=${existingBookId}`,
-                        fail: function(err) {
-                          console.error('redirectTo也失败:', err);
-                          wx.reLaunch({
-                            url: `../bookDetail/bookDetail?id=${existingBookId}`
-                          });
-                        }
-                      });
-                    }
-                  });
-                } catch (err) {
-                  console.error('跳转过程中发生异常:', err);
-                }
-              } else {
-                console.log('用户选择仍然添加，继续保存');
-                this.saveBookToCloud();
-              }
-            }
-          });
-        } else {
-          // 不存在重复，继续保存
-          this.saveBookToCloud();
-        }
-      })
-      .catch(err => {
-        console.error('检查标题+作者失败', err);
-        // 出错时继续保存
-        this.saveBookToCloud();
-      });
+  // 处理封面图片：如果是本地文件则上传到云存储
+  handleCoverImage(bookForm) {
+    return new Promise((resolve, reject) => {
+      const coverUrl = bookForm.coverUrl;
+      const coverSource = this.data.coverSource;
+      
+      console.log('处理封面图片:', coverUrl, '来源:', coverSource);
+      
+      // 如果没有封面或者封面是网络图片，直接返回
+      if (!coverUrl || coverSource === 'network' || coverUrl.startsWith('cloud://') || coverUrl.startsWith('http')) {
+        resolve(bookForm);
+        return;
+      }
+      
+      // 如果是本地图片，需要上传到云存储
+      if (coverSource === 'local' && wx.cloud) {
+        const cloudPath = `covers/${Date.now()}-${Math.floor(Math.random() * 1000)}.jpg`;
+        
+        wx.cloud.uploadFile({
+          cloudPath: cloudPath,
+          filePath: coverUrl,
+          success: res => {
+            console.log('封面上传成功:', res.fileID);
+            // 更新bookForm中的封面URL为云存储路径
+            const updatedBookForm = { ...bookForm, coverUrl: res.fileID, coverSource: 'cloud' };
+            resolve(updatedBookForm);
+          },
+          fail: err => {
+            console.error('封面上传失败:', err);
+            // 失败时仍使用原始表单
+            resolve(bookForm);
+          }
+        });
+      } else {
+        // 其他情况，直接使用原始表单
+        resolve(bookForm);
+      }
+    });
   },
   
-  // 保存书籍到云数据库
-  saveBookToCloud() {
-    // 将分类ID转换为分类名称
+  // 继续执行保存操作
+  continuePerformSave(oldCategories) {
+    const bookForm = { ...this.data.bookForm };
+    
+    // 添加时间
+    bookForm.addTime = wx.cloud.database().serverDate();
+    
+    // 添加分类信息 - 将分类ID转换为分类名称
     const categoryNames = [];
-    let categoryName = null;
-    
     if (this.data.selectedCategories && this.data.selectedCategories.length > 0) {
       // 遍历选中的分类ID，找出对应的分类名称
       this.data.selectedCategories.forEach(categoryId => {
-        const categoryObj = this.data.categoriesWithSelection.find(item => item._id === categoryId);
+        const categoryObj = this.data.categories.find(item => item._id === categoryId);
         if (categoryObj) {
           categoryNames.push(categoryObj.name);
-          // 设置第一个选中的分类为主分类
-          if (!categoryName) {
-            categoryName = categoryObj.name;
-          }
         }
       });
     }
     
-    const bookData = {
-      title: this.data.bookForm.title,
-      author: this.data.bookForm.author,
-      publisher: this.data.bookForm.publisher,
-      publishDate: this.data.bookForm.publishDate,
-      isbn: this.data.bookForm.isbn,
-      pages: this.data.bookForm.pages,
-      price: this.data.bookForm.price,
-      binding: this.data.bookForm.binding,
-      edition: this.data.bookForm.edition,
-      format: this.data.bookForm.format,
-      description: this.data.bookForm.description,
-      coverUrl: this.data.bookForm.coverUrl,
-      coverSource: this.data.coverSource || 'network',
-      category: categoryName || '其他',
-      categories: categoryNames.length > 0 ? categoryNames : ['其他'],
-      borrowStatus: 'in',
-      addTime: wx.cloud.database().serverDate()
-    };
+    // 保存分类名称数组到categories字段
+    bookForm.categories = categoryNames.length > 0 ? categoryNames : ['其他'];
+    // 使用第一个分类名称作为主分类
+    bookForm.category = categoryNames.length > 0 ? categoryNames[0] : '其他';
     
-    // 保存到云数据库
-    wx.cloud.database().collection('books').add({
-      data: bookData,
-      success: (res) => {
+    // 设置默认借阅状态为"在库"
+    if (!bookForm.borrowStatus) {
+      bookForm.borrowStatus = 'in';
+    }
+    
+    // 处理封面图片
+    this.handleCoverImage(bookForm)
+      .then(processedBookForm => {
+        // 保存到云数据库
+        if (this.data.bookId) {
+          // 编辑模式
+          wx.cloud.database().collection('books').doc(this.data.bookId).update({
+            data: processedBookForm
+          })
+          .then(() => {
+            console.log('更新图书成功');
+            wx.hideLoading();
+            
+            // 更新分类计数
+            this.updateCategoriesCount(oldCategories, bookForm.categories);
+            
+            wx.showToast({
+              title: '保存成功',
+              icon: 'success'
+            });
+            setTimeout(() => {
+              wx.navigateBack();
+            }, 1500);
+          })
+          .catch(err => {
+            console.error('更新图书失败:', err);
+            wx.hideLoading();
+            wx.showToast({
+              title: '保存失败',
+              icon: 'none'
+            });
+          });
+        } else {
+          // 新增模式
+          wx.cloud.database().collection('books').add({
+            data: processedBookForm
+          })
+          .then(res => {
+            console.log('添加图书成功, ID:', res._id);
+            wx.hideLoading();
+            
+            // 更新分类计数
+            this.updateCategoriesCount([], bookForm.categories);
+            
+            wx.showToast({
+              title: '添加成功',
+              icon: 'success'
+            });
+            setTimeout(() => {
+              wx.navigateBack();
+            }, 1500);
+          })
+          .catch(err => {
+            console.error('添加图书失败:', err);
+            wx.hideLoading();
+            wx.showToast({
+              title: '添加失败',
+              icon: 'none'
+            });
+          });
+        }
+      })
+      .catch(err => {
+        console.error('处理图书封面失败:', err);
         wx.hideLoading();
-        this.setData({ isSaving: false }); // 重置保存状态
         wx.showToast({
-          title: '保存成功',
-          icon: 'success'
+          title: '上传封面失败',
+          icon: 'none'
         });
-        
-        // 返回上一页
-        setTimeout(() => {
-          wx.navigateBack();
-        }, 1500);
-      },
-      fail: (err) => {
-        console.error('保存图书失败', err);
-        wx.hideLoading();
-        this.setData({ isSaving: false }); // 重置保存状态
-        this.showError('保存失败：' + err.errMsg);
-      }
+      });
+  },
+  
+  // 更新分类计数
+  updateCategoriesCount(oldCategories, newCategories) {
+    console.log('更新分类计数，原分类:', oldCategories, '新分类:', newCategories);
+    
+    const db = wx.cloud.database();
+    const allCategories = [...new Set([...oldCategories, ...newCategories])];
+    
+    // 对每个受影响的分类进行处理
+    allCategories.forEach(categoryName => {
+      // 查询该分类相关的所有图书
+      db.collection('books')
+        .where({
+          categories: categoryName
+        })
+        .count()
+        .then(res => {
+          // 获取该分类的实际图书数量
+          const actualCount = res.total;
+          console.log(`分类[${categoryName}]的实际图书数量:`, actualCount);
+          
+          // 调试：查看该分类下的所有图书
+          db.collection('books')
+            .where({
+              categories: categoryName
+            })
+            .field({
+              _id: true,
+              title: true
+            })
+            .get()
+            .then(booksRes => {
+              console.log(`分类[${categoryName}]下的图书:`, 
+                booksRes.data.map(b => b.title));
+            });
+          
+          // 更新数据库中的计数
+          db.collection('categories')
+            .where({
+              name: categoryName
+            })
+            .get()
+            .then(catRes => {
+              if (catRes.data && catRes.data.length > 0) {
+                const categoryId = catRes.data[0]._id;
+                const currentCount = catRes.data[0].count;
+                
+                console.log(`准备更新分类[${categoryName}]计数，当前值:${currentCount}，新值:${actualCount}`);
+                
+                db.collection('categories').doc(categoryId).update({
+                  data: {
+                    count: actualCount
+                  }
+                }).then(() => {
+                  console.log(`分类[${categoryName}]计数已更新为:`, actualCount);
+                }).catch(err => {
+                  console.error(`更新分类[${categoryName}]计数失败:`, err);
+                  
+                  // 如果更新失败，尝试使用set方法覆盖
+                  const updatedCategory = {...catRes.data[0], count: actualCount};
+                  db.collection('categories').doc(categoryId).set({
+                    data: updatedCategory
+                  }).then(() => {
+                    console.log(`使用set方法更新分类[${categoryName}]计数成功`);
+                  }).catch(setErr => {
+                    console.error(`使用set方法更新分类[${categoryName}]计数失败:`, setErr);
+                  });
+                });
+              }
+            })
+            .catch(err => {
+              console.error(`查询分类[${categoryName}]失败:`, err);
+            });
+        })
+        .catch(err => {
+          console.error(`获取分类[${categoryName}]的图书数量失败:`, err);
+        });
     });
   },
 

@@ -1,6 +1,9 @@
 <view class="container">
   <view class="header">
-    <view class="title">分类管理</view>
+    <view class="title-row">
+      <view class="title">分类管理</view>
+      <view class="sync-btn" bindtap="syncAllCategories">同步计数</view>
+    </view>
     <view class="desc">添加、编辑或删除图书分类</view>
   </view>
 
@@ -53,6 +56,6 @@
 
   <!-- 加载状态 -->
   <view class="loading" wx:if="{{loading}}">
-    <text>加载中...</text>
+    <van-loading size="24px" color="#999">加载中...</van-loading>
   </view>
 </view> 
