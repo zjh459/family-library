@@ -1,4 +1,5 @@
 const app = getApp();
+const bookUtils = require('../../utils/book');
 
 Page({
   data: {
@@ -11,7 +12,7 @@ Page({
     theme: {},
     isEditMode: false,
     editForm: {},
-    categories: ['小说', '经管', '科技', '文学', '其他'],
+    categories: [],
     showCategoryPicker: false,
     currentCategory: '',
     showCategoryModal: false,
@@ -20,7 +21,8 @@ Page({
     categoriesWithSelection: [],
     originalSelectedCategories: [],
     newCategoryName: '',
-    showAddCategoryInput: false
+    showAddCategoryInput: false,
+    loading: true
   },
 
   onLoad(options) {
@@ -43,51 +45,40 @@ Page({
 
   // 加载书籍详情
   loadBookDetail() {
-    const book = app.getBook(this.data.bookId);
-    if (book) {
-      this.setData({ 
-        book,
-        editForm: { ...book },
-        currentCategory: book.category || ''
-      });
-    } else {
-      // 如果本地没有，尝试从云数据库获取
-      if (wx.cloud) {
-        wx.showLoading({
-          title: '加载中...',
+    const that = this;
+    const db = wx.cloud.database();
+    
+    console.log('开始加载书籍详情，ID:', this.data.bookId);
+    
+    db.collection('books')
+      .doc(this.data.bookId)
+      .get()
+      .then(res => {
+        console.log('获取到书籍详情:', res.data);
+        
+        // 处理封面URL
+        const book = bookUtils.processCoverUrl(res.data);
+        
+        console.log('处理后的书籍信息:', book);
+        
+        that.setData({
+          book: book,
+          editForm: { ...book },
+          currentCategory: book.category || '',
+          loading: false
         });
         
-        wx.cloud.database().collection('books').doc(this.data.bookId).get({
-          success: res => {
-            wx.hideLoading();
-            if (res.data) {
-              const bookData = {
-                ...res.data,
-                id: res.data._id
-              };
-              
-              // 添加到本地缓存
-              app.addBook(bookData);
-              
-              this.setData({ 
-                book: bookData,
-                editForm: { ...bookData },
-                currentCategory: bookData.category || ''
-              });
-            } else {
-              this.showBookNotFound();
-            }
-          },
-          fail: err => {
-            console.error('获取图书详情失败', err);
-            wx.hideLoading();
-            this.showBookNotFound();
-          }
+        // 加载分类列表
+        that.loadCategories();
+      })
+      .catch(err => {
+        console.error('获取图书详情失败', err);
+        that.setData({ loading: false });
+        wx.showToast({
+          title: '获取图书详情失败',
+          icon: 'none'
         });
-      } else {
-        this.showBookNotFound();
-      }
-    }
+      });
   },
   
   // 显示书籍不存在提示
@@ -358,54 +349,66 @@ Page({
 
   // 上传封面
   uploadCover() {
-    wx.chooseImage({
-      count: 1,
-      sizeType: ['compressed'],
-      sourceType: ['album', 'camera'],
+    // 提供用户选择：本地图片或输入网络图片URL
+    wx.showActionSheet({
+      itemList: ['从相册选择', '拍照', '输入图片网址'],
       success: (res) => {
-        const tempFilePath = res.tempFilePaths[0];
-        
-        wx.showLoading({
-          title: '上传中...',
-        });
-        
-        // 上传到云存储
-        if (wx.cloud) {
-          const cloudPath = `book-covers/${Date.now()}-${Math.floor(Math.random() * 1000)}.jpg`;
-          wx.cloud.uploadFile({
-            cloudPath: cloudPath,
-            filePath: tempFilePath,
-            success: res => {
-              // 获取图片的云存储链接
-              const fileID = res.fileID;
+        if (res.tapIndex === 0 || res.tapIndex === 1) {
+          // 选择本地图片或拍照
+          wx.chooseImage({
+            count: 1,
+            sizeType: ['compressed'],
+            sourceType: res.tapIndex === 0 ? ['album'] : ['camera'],
+            success: (res) => {
+              const tempFilePath = res.tempFilePaths[0];
+              
+              // 直接使用临时路径作为封面
               this.setData({
-                'editForm.coverUrl': fileID
+                'editForm.coverUrl': tempFilePath,
+                'editForm.coverSource': 'local' // 标记为本地图片
               });
-              wx.hideLoading();
+              
               wx.showToast({
-                title: '上传成功',
+                title: '图片已选择',
                 icon: 'success'
-              });
-            },
-            fail: err => {
-              console.error('上传失败', err);
-              wx.hideLoading();
-              wx.showToast({
-                title: '上传失败',
-                icon: 'none'
-              });
-              // 上传失败也要设置本地临时文件
-              this.setData({
-                'editForm.coverUrl': tempFilePath
               });
             }
           });
-        } else {
-          // 如果云开发不可用，使用本地临时路径
-          this.setData({
-            'editForm.coverUrl': tempFilePath
-          });
-          wx.hideLoading();
+        } else if (res.tapIndex === 2) {
+          // 输入网络图片URL
+          this.showInputImageUrlDialog();
+        }
+      }
+    });
+  },
+  
+  // 显示输入图片URL的对话框
+  showInputImageUrlDialog() {
+    wx.showModal({
+      title: '输入图片URL',
+      editable: true,
+      placeholderText: 'https://example.com/image.jpg',
+      success: (res) => {
+        if (res.confirm && res.content) {
+          const imageUrl = res.content.trim();
+          
+          // 验证URL格式
+          if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+            this.setData({
+              'editForm.coverUrl': imageUrl,
+              'editForm.coverSource': 'network' // 标记为网络图片
+            });
+            
+            wx.showToast({
+              title: 'URL已设置',
+              icon: 'success'
+            });
+          } else {
+            wx.showToast({
+              title: '请输入有效的URL',
+              icon: 'none'
+            });
+          }
         }
       }
     });
@@ -534,85 +537,75 @@ Page({
       content: '确定要删除这本书吗？此操作不可恢复。',
       success: (res) => {
         if (res.confirm) {
-          const success = app.deleteBook(this.data.book.id);
-          if (success) {
-            wx.showToast({
-              title: '删除成功',
-              icon: 'success'
+          wx.showLoading({
+            title: '删除中...',
+          });
+          
+          const result = app.deleteBook(this.data.bookId);
+          
+          // 处理可能的Promise返回值
+          if (result instanceof Promise) {
+            result.then(success => {
+              wx.hideLoading();
+              if (success) {
+                wx.showToast({
+                  title: '删除成功',
+                  icon: 'success'
+                });
+                setTimeout(() => {
+                  wx.navigateBack();
+                }, 1500);
+              } else {
+                wx.showToast({
+                  title: '删除失败',
+                  icon: 'none'
+                });
+              }
+            }).catch(err => {
+              wx.hideLoading();
+              console.error('删除图书时出错:', err);
+              wx.showToast({
+                title: '删除失败: ' + (err.errMsg || '未知错误'),
+                icon: 'none'
+              });
             });
-            setTimeout(() => {
-              wx.navigateBack();
-            }, 1500);
           } else {
-            wx.showToast({
-              title: '删除失败',
-              icon: 'none'
-            });
+            // 同步返回结果的处理
+            wx.hideLoading();
+            if (result) {
+              wx.showToast({
+                title: '删除成功',
+                icon: 'success'
+              });
+              setTimeout(() => {
+                wx.navigateBack();
+              }, 1500);
+            } else {
+              wx.showToast({
+                title: '删除失败',
+                icon: 'none'
+              });
+            }
           }
         }
       }
     });
   },
 
-  // 打开分类管理弹窗
-  manageCategories() {
-    // 初始化已选分类
-    let selectedCategoryNames = [];
-    
-    // 如果book.categories是数组，直接使用
-    if (this.data.book.categories && Array.isArray(this.data.book.categories)) {
-      selectedCategoryNames = [...this.data.book.categories];
-    } 
-    // 如果book.category是字符串，转为数组
-    else if (this.data.book.category) {
-      selectedCategoryNames = [this.data.book.category];
+  // 管理分类
+  manageCategories: function() {
+    // 确保已加载分类
+    if (!this.data.categoriesWithSelection || this.data.categoriesWithSelection.length === 0) {
+      this.loadCategories();
     }
     
-    console.log('初始选中分类名称:', selectedCategoryNames);
+    // 保存原始选中状态，以便取消时恢复
+    const originalCategoriesWithSelection = this.data.categoriesWithSelection.map(item => ({ ...item }));
     
-    // 从云数据库获取分类
-    wx.showLoading({
-      title: '加载分类...',
+    this.setData({
+      showCategoryModal: true,
+      originalCategoriesWithSelection: originalCategoriesWithSelection
     });
-    
-    if (wx.cloud) {
-      wx.cloud.database().collection('categories').get({
-        success: res => {
-          wx.hideLoading();
-          
-          // 加载分类后，为每个分类添加选中状态标记
-          const rawCategories = res.data || [];
-          const categoriesWithSelection = rawCategories.map(category => ({
-            ...category,
-            selected: selectedCategoryNames.indexOf(category.name) !== -1
-          }));
-          
-          console.log('带选中状态的分类:', categoriesWithSelection);
-          
-          this.setData({ 
-            showCategoryModal: true,
-            categoriesWithSelection: categoriesWithSelection,
-            originalSelectedCategories: [...selectedCategoryNames], // 保存原始选中，便于取消操作
-            newCategoryName: '', // 清空新分类名称
-            showAddCategoryInput: false // 初始不显示添加分类输入框
-          });
-        },
-        fail: err => {
-          console.error('获取分类失败', err);
-          wx.hideLoading();
-          wx.showToast({
-            title: '获取分类失败',
-            icon: 'none'
-          });
-        }
-      });
-    } else {
-      wx.hideLoading();
-      wx.showToast({
-        title: '云开发未启用',
-        icon: 'none'
-      });
-    }
   },
   
   // 关闭分类管理弹窗
@@ -758,23 +751,16 @@ Page({
       wx.cloud.database().collection('books').doc(this.data.bookId).update({
         data: updateInfo,
         success: () => {
+          console.log('云数据库分类更新成功');
           // 更新本地数据
-          const success = app.updateBook(this.data.bookId, updateInfo);
-          if (success) {
-            this.closeCategoryModal();
-            this.loadBookDetail(); // 重新加载图书详情，确保数据一致
-            wx.hideLoading();
-            wx.showToast({
-              title: '保存成功',
-              icon: 'success'
-            });
-          } else {
-            wx.hideLoading();
-            wx.showToast({
-              title: '本地保存失败',
-              icon: 'none'
-            });
-          }
+          app.updateBook(this.data.bookId, updateInfo);
+          this.closeCategoryModal();
+          this.loadBookDetail(); // 重新加载图书详情，确保数据一致
+          wx.hideLoading();
+          wx.showToast({
+            title: '保存成功',
+            icon: 'success'
+          });
         },
         fail: err => {
           console.error('保存分类失败', err);
@@ -787,22 +773,57 @@ Page({
       });
     } else {
       // 仅本地更新
-      const success = app.updateBook(this.data.bookId, updateInfo);
-      if (success) {
-        this.closeCategoryModal();
-        this.loadBookDetail(); // 重新加载以确保数据一致
-        wx.hideLoading();
-        wx.showToast({
-          title: '保存成功',
-          icon: 'success'
+      app.updateBook(this.data.bookId, updateInfo);
+      this.closeCategoryModal();
+      this.loadBookDetail(); // 重新加载以确保数据一致
+      wx.hideLoading();
+      wx.showToast({
+        title: '保存成功',
+        icon: 'success'
+      });
+    }
+  },
+
+  // 加载分类列表
+  loadCategories: function() {
+    console.log('开始加载分类列表');
+    
+    const db = wx.cloud.database();
+    db.collection('categories')
+      .get()
+      .then(res => {
+        console.log('获取到分类列表:', res.data);
+        
+        // 将书籍的分类与所有分类进行匹配，设置选中状态
+        const allCategories = res.data;
+        const bookCategories = this.data.book.categories || [];
+        
+        console.log('当前书籍分类:', bookCategories);
+        
+        const categoriesWithSelection = allCategories.map(category => {
+          const isSelected = bookCategories.includes(category.name);
+          console.log('分类:', category.name, '是否选中:', isSelected);
+          
+          return {
+            _id: category._id,
+            name: category.name,
+            selected: isSelected
+          };
         });
-      } else {
-        wx.hideLoading();
+        
+        console.log('处理后的分类列表:', categoriesWithSelection);
+        
+        this.setData({
+          allCategories: allCategories,
+          categoriesWithSelection: categoriesWithSelection
+        });
+      })
+      .catch(err => {
+        console.error('加载分类失败:', err);
         wx.showToast({
-          title: '保存失败',
+          title: '加载分类失败',
           icon: 'none'
         });
-      }
-    }
+      });
   },
 }) 

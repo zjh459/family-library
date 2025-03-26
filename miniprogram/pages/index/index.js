@@ -1,6 +1,7 @@
 const app = getApp();
 const db = wx.cloud.database();
 const _ = db.command;
+const bookUtils = require('../../utils/book'); // 引入book工具函数
 
 Page({
   data: {
@@ -29,13 +30,35 @@ Page({
 
   // 加载图书数据
   loadBooks() {
+    const that = this;
+    
+    // 根据当前选择的分类进行过滤
+    let query = {};
+    if (this.data.selectedCategory && this.data.selectedCategory !== 'all') {
+      query.categories = this.data.selectedCategory;
+    }
+
+    // 如果有搜索值，添加搜索条件
+    if (this.data.searchValue) {
+      query.title = db.RegExp({
+        regexp: this.data.searchValue,
+        options: 'i'
+      });
+    }
+
+    this.setData({ loading: true });
+
     db.collection('books')
-      .orderBy('addTime', 'desc') // 按添加时间倒序排列
+      .where(query)
+      .orderBy('addTime', 'desc')
       .get()
       .then(res => {
-        this.setData({
-          books: res.data,
-          filteredBooks: res.data,
+        // 处理封面URL
+        const books = res.data.map(book => bookUtils.processCoverUrl(book));
+        
+        that.setData({
+          books: books,
+          filteredBooks: books,
           loading: false
         });
         
@@ -51,7 +74,7 @@ Page({
       })
       .catch(err => {
         console.error('加载图书失败：', err);
-        this.setData({ loading: false });
+        that.setData({ loading: false });
         wx.showToast({
           title: '加载图书失败',
           icon: 'none'

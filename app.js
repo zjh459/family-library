@@ -90,13 +90,23 @@ App({
 
   // 更新书籍
   updateBook(bookId, updatedInfo) {
-    const index = this.globalData.books.findIndex(book => book.id === bookId);
+    console.log('开始更新书籍，ID:', bookId, '更新信息:', updatedInfo);
+    
+    // 支持根据id或_id查找书籍
+    const index = this.globalData.books.findIndex(book => book.id === bookId || book._id === bookId);
+    
+    console.log('在全局数据中查找书籍索引:', index);
+    
     if (index !== -1) {
+      console.log('找到书籍，开始更新');
+      
       this.globalData.books[index] = {
         ...this.globalData.books[index],
         ...updatedInfo
       };
       this.saveBooks();
+      
+      console.log('已更新本地数据');
       
       // 同步更新到云数据库
       if (wx.cloud) {
@@ -105,8 +115,13 @@ App({
           // 排除系统字段，避免Invalid Key Name错误
           const { _openid, _id, ...cloudSafeData } = updatedInfo;
           
+          console.log('开始更新云数据库，ID:', cloudId);
+          
           wx.cloud.database().collection('books').doc(cloudId).update({
             data: cloudSafeData,
+            success: res => {
+              console.log('更新云数据库成功:', res);
+            },
             fail: err => {
               console.error('更新云数据库失败', err);
             }
@@ -116,38 +131,69 @@ App({
       
       return true;
     }
+    
+    console.error('未找到要更新的书籍，ID:', bookId);
     return false;
   },
 
   // 删除书籍
   deleteBook(bookId) {
-    const index = this.globalData.books.findIndex(book => book.id === bookId);
+    console.log('尝试删除书籍，ID:', bookId);
+    
+    const index = this.globalData.books.findIndex(book => book.id === bookId || book._id === bookId);
+    
+    console.log('在全局数据中查找书籍索引:', index);
+    
     if (index !== -1) {
       // 先从本地删除
       const deletedBook = this.globalData.books.splice(index, 1)[0];
       this.saveBooks();
       
+      console.log('已从本地删除书籍:', deletedBook);
+      
       // 同步从云数据库删除
       if (wx.cloud && bookId.indexOf('book_') !== 0) {
-        wx.cloud.database().collection('books').doc(bookId).remove({
-          fail: err => {
-            console.error('从云数据库删除失败', err);
-          }
-        });
+        console.log('开始从云数据库删除书籍:', bookId);
         
-        // 如果有封面图片存储在云存储中，也一并删除
-        if (deletedBook.coverUrl && deletedBook.coverUrl.indexOf('cloud://') === 0) {
-          wx.cloud.deleteFile({
-            fileList: [deletedBook.coverUrl],
+        // 返回Promise以便等待删除完成
+        return new Promise((resolve, reject) => {
+          wx.cloud.database().collection('books').doc(bookId).remove({
+            success: res => {
+              console.log('从云数据库删除成功:', res);
+              
+              // 如果有封面图片存储在云存储中，也一并删除
+              if (deletedBook.coverUrl && deletedBook.coverUrl.indexOf('cloud://') === 0) {
+                wx.cloud.deleteFile({
+                  fileList: [deletedBook.coverUrl],
+                  success: fileRes => {
+                    console.log('删除云存储图片成功:', fileRes);
+                  },
+                  fail: err => {
+                    console.error('删除云存储图片失败', err);
+                  },
+                  complete: () => {
+                    resolve(true);
+                  }
+                });
+              } else {
+                resolve(true);
+              }
+            },
             fail: err => {
-              console.error('删除云存储图片失败', err);
+              console.error('从云数据库删除失败', err);
+              reject(err);
             }
           });
-        }
+        }).then(() => true).catch(err => {
+          console.error('删除过程中发生错误:', err);
+          return false;
+        });
       }
       
       return true;
     }
+    
+    console.error('未找到要删除的书籍，ID:', bookId);
     return false;
   },
 

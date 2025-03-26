@@ -50,7 +50,7 @@
     <van-tab title="手动添加">
       <view class="form-container">
         <!-- 书籍封面 -->
-        <view class="cover-upload" bindtap="uploadCover">
+        <view class="cover-upload" bindtap="chooseCover">
           <image 
             wx:if="{{bookForm.coverUrl}}" 
             src="{{bookForm.coverUrl}}" 

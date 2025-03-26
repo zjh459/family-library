@@ -1,4 +1,5 @@
 const app = getApp();
+const bookUtils = require('../../utils/book');
 
 Page({
   data: {
@@ -94,240 +95,117 @@ Page({
   },
 
   // 提交搜索
-  onSearch() {
-    const keyword = this.data.keyword.trim();
-    if (!keyword) {
-      return;
-    }
-    
-    this.performSearch(keyword);
-    this.addToSearchHistory(keyword);
-  },
-
-  // 执行搜索
-  performSearch(keyword) {
-    this.setData({ 
+  onSearch: function() {
+    this.setData({
       isSearching: true,
-      hasSearched: true 
+      hasSearched: true
     });
-
-    // 构建筛选条件
-    const filters = {};
     
-    // 分类筛选
-    if (this.data.currentCategory !== '全部') {
-      // 修改为检查categories数组中是否包含所选分类
-      filters.categoryName = this.data.currentCategory;
+    const db = wx.cloud.database();
+    const _ = db.command;
+    
+    // 保存搜索历史（仅当关键词不为空时）
+    if (this.data.keyword) {
+      this.addToHistory(this.data.keyword);
     }
     
-    // 作者筛选
-    if (this.data.currentAuthor !== '全部') {
-      filters.author = this.data.currentAuthor;
+    let query = {};
+    
+    // 添加关键字搜索条件（书名、作者或ISBN）
+    if (this.data.keyword) {
+      query = db.command.or([
+        {
+          title: db.RegExp({
+            regexp: this.data.keyword,
+            options: 'i'
+          })
+        },
+        {
+          author: db.RegExp({
+            regexp: this.data.keyword,
+            options: 'i'
+          })
+        },
+        {
+          isbn: db.RegExp({
+            regexp: this.data.keyword,
+            options: 'i'
+          })
+        }
+      ]);
     }
     
-    // 出版社筛选
-    if (this.data.currentPublisher !== '全部') {
-      filters.publisher = this.data.currentPublisher;
+    // 添加筛选条件
+    let filterConditions = {};
+    
+    if (this.data.currentCategory && this.data.currentCategory !== '全部') {
+      filterConditions.categories = this.data.currentCategory;
     }
     
-    // 在库状态筛选
-    if (this.data.currentBorrowStatus !== '全部') {
-      filters.borrowStatus = this.data.currentBorrowStatus === '在库' ? 'in' : 'out';
+    if (this.data.currentAuthor && this.data.currentAuthor !== '全部') {
+      filterConditions.author = this.data.currentAuthor;
     }
     
-    // 处理年份筛选
-    if (this.data.currentPublishYear !== '全部') {
-      if (this.data.currentPublishYear === '更早') {
-        // 找2018年之前的
-        filters.publishYearBefore = 2018;
+    if (this.data.currentPublisher && this.data.currentPublisher !== '全部') {
+      filterConditions.publisher = this.data.currentPublisher;
+    }
+    
+    if (this.data.currentPublishYear && this.data.currentPublishYear !== '全部') {
+      filterConditions.publishDate = db.RegExp({
+        regexp: this.data.currentPublishYear,
+        options: 'i'
+      });
+    }
+    
+    if (this.data.currentBorrowStatus && this.data.currentBorrowStatus !== '全部') {
+      const status = this.data.currentBorrowStatus === '在库' ? 'in' : 'out';
+      filterConditions.borrowStatus = status;
+    }
+    
+    // 构建最终查询条件
+    let finalQuery = query;
+    
+    // 如果有筛选条件
+    if (Object.keys(filterConditions).length > 0) {
+      // 如果同时有关键字查询和筛选条件，使用AND组合
+      if (this.data.keyword) {
+        finalQuery = db.command.and([query, filterConditions]);
       } else {
-        filters.publishYear = this.data.currentPublishYear;
+        // 仅有筛选条件时直接使用
+        finalQuery = filterConditions;
       }
+    } else if (!this.data.keyword) {
+      // 既没有关键词也没有筛选条件，则获取所有书籍
+      finalQuery = {};
     }
-
-    // 调用搜索
-    this.searchBooksFromCloud(keyword, filters);
-  },
-  
-  // 从云数据库中搜索图书
-  async searchBooksFromCloud(keyword, filters) {
-    try {
-      const db = wx.cloud.database();
-      const _ = db.command;
-      
-      // 构建查询条件
-      let query = db.collection('books');
-      
-      // 关键词搜索（标题、作者或ISBN）
-      if (keyword) {
-        // 由于微信小程序云数据库不支持复杂的OR查询，需要多次查询合并结果
-        const titleQuery = await db.collection('books')
-          .where({
-            title: db.RegExp({
-              regexp: keyword,
-              options: 'i',
-            })
-          })
-          .get();
-          
-        const authorQuery = await db.collection('books')
-          .where({
-            author: db.RegExp({
-              regexp: keyword,
-              options: 'i',
-            })
-          })
-          .get();
-          
-        const isbnQuery = await db.collection('books')
-          .where({
-            isbn: db.RegExp({
-              regexp: keyword,
-              options: 'i',
-            })
-          })
-          .get();
-          
-        // 合并查询结果并去重
-        const allResults = [...titleQuery.data, ...authorQuery.data, ...isbnQuery.data];
-        const uniqueResults = this.removeDuplicates(allResults, '_id');
-        
-        // 应用筛选条件
-        let filteredResults = this.applyFilters(uniqueResults, filters);
+    
+    db.collection('books')
+      .where(finalQuery)
+      .get()
+      .then(res => {
+        // 处理封面URL
+        const books = res.data.map(book => bookUtils.processCoverUrl(book));
         
         this.setData({
-          searchResults: filteredResults,
+          searchResults: books,
           isSearching: false
         });
-        return;
-      }
-      
-      // 如果没有关键词，直接按筛选条件查询
-      let dbQuery = query;
-      
-      // 添加分类筛选条件
-      if (filters.categoryName) {
-        dbQuery = dbQuery.where({
-          categories: _.all([filters.categoryName])
+      })
+      .catch(err => {
+        console.error('搜索失败:', err);
+        this.setData({
+          isSearching: false,
+          searchResults: []
         });
-      }
-      
-      // 添加其他筛选条件
-      if (filters.author) {
-        dbQuery = dbQuery.where({
-          author: filters.author
+        wx.showToast({
+          title: '搜索失败',
+          icon: 'none'
         });
-      }
-      
-      if (filters.publisher) {
-        dbQuery = dbQuery.where({
-          publisher: filters.publisher
-        });
-      }
-      
-      if (filters.borrowStatus) {
-        dbQuery = dbQuery.where({
-          borrowStatus: filters.borrowStatus
-        });
-      }
-      
-      // 执行查询
-      const res = await dbQuery.get();
-      
-      // 处理出版年份筛选（云数据库不好做这种部分匹配的查询，所以在结果中筛选）
-      let results = res.data;
-      if (filters.publishYear || filters.publishYearBefore) {
-        results = this.filterByPublishYear(results, filters);
-      }
-      
-      this.setData({
-        searchResults: results,
-        isSearching: false
       });
-    } catch (err) {
-      console.error('搜索失败：', err);
-      this.setData({
-        searchResults: [],
-        isSearching: false
-      });
-      
-      wx.showToast({
-        title: '搜索失败',
-        icon: 'none'
-      });
-    }
-  },
-  
-  // 从数组中删除重复项
-  removeDuplicates(array, key) {
-    const seen = new Set();
-    return array.filter(item => {
-      const value = item[key];
-      if (seen.has(value)) {
-        return false;
-      }
-      seen.add(value);
-      return true;
-    });
-  },
-  
-  // 应用内存中的筛选条件
-  applyFilters(books, filters) {
-    return books.filter(book => {
-      // 分类筛选
-      if (filters.categoryName && (!book.categories || !book.categories.includes(filters.categoryName))) {
-        return false;
-      }
-      
-      // 作者筛选
-      if (filters.author && book.author !== filters.author) {
-        return false;
-      }
-      
-      // 出版社筛选
-      if (filters.publisher && book.publisher !== filters.publisher) {
-        return false;
-      }
-      
-      // 借阅状态筛选
-      if (filters.borrowStatus && book.borrowStatus !== filters.borrowStatus) {
-        return false;
-      }
-      
-      // 年份筛选
-      if (filters.publishYear || filters.publishYearBefore) {
-        return this.matchesPublishYearFilter(book, filters);
-      }
-      
-      return true;
-    });
-  },
-  
-  // 筛选出版年份
-  filterByPublishYear(books, filters) {
-    return books.filter(book => this.matchesPublishYearFilter(book, filters));
-  },
-  
-  // 检查是否匹配出版年份筛选
-  matchesPublishYearFilter(book, filters) {
-    if (!book.publishDate) return false;
-    
-    const year = parseInt(book.publishDate.split('-')[0]);
-    if (isNaN(year)) return false;
-    
-    if (filters.publishYearBefore) {
-      return year < filters.publishYearBefore;
-    }
-    
-    if (filters.publishYear) {
-      return year.toString() === filters.publishYear;
-    }
-    
-    return true;
   },
 
   // 添加到搜索历史
-  addToSearchHistory(keyword) {
+  addToHistory(keyword) {
     // 获取当前历史
     let history = this.data.searchHistory;
     
@@ -353,7 +231,7 @@ Page({
   onHistoryItemTap(e) {
     const keyword = e.currentTarget.dataset.keyword;
     this.setData({ keyword });
-    this.performSearch(keyword);
+    this.onSearch();
   },
 
   // 清空历史记录
@@ -416,12 +294,15 @@ Page({
 
   // 应用筛选
   applyFilter() {
-    this.setData({ showFilterPopup: false });
+    this.closeFilterPopup();
+    
+    // 如果已经有搜索关键词，则执行搜索
     if (this.data.keyword) {
-      this.performSearch(this.data.keyword);
+      this.onSearch();
     } else {
-      // 即使没有关键词，也可以按筛选条件搜索
-      this.performSearch('');
+      // 如果没有关键词但选择了筛选条件，使用空搜索
+      this.setData({ keyword: '' });
+      this.onSearch();
     }
   },
 

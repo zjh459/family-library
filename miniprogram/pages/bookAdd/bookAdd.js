@@ -1,5 +1,6 @@
 const app = getApp();
 const config = require('../.././../config');
+const bookUtils = require('../../utils/book');
 
 Page({
   data: {
@@ -27,31 +28,28 @@ Page({
     showCategoryPickerModal: false,
     theme: {},
     showAddCategoryModal: false,
-    newCategoryName: ''
+    newCategoryName: '',
+    coverSource: 'network', // 标记封面来源
+    bookInfo: null,
+    loading: false,
+    showError: false,
+    errorMsg: '',
+    currentCategory: null
   },
 
-  onLoad(options) {
+  onLoad: function(options) {
+    // 设置主题
     this.setData({
-      theme: app.globalData.theme,
-      selectedCategories: []  // 确保初始化时是空数组
+      theme: app.globalData.theme
     });
-
-    // 初始化云环境
-    if (!wx.cloud) {
-      console.error('请使用 2.2.3 或以上的基础库以使用云能力');
-    } else {
-      wx.cloud.init({
-        env: config.cloud.env, // 从配置文件读取云环境ID
-        traceUser: true,
-      });
-    }
-
-    // 加载分类数据
+    
+    // 加载分类
     this.loadCategories();
     
-    // 如果是编辑模式，需要加载图书的分类信息
-    if (options.id) {
-      this.loadBookData(options.id);
+    // 如果有传入ISBN参数，自动获取图书信息
+    if (options.isbn) {
+      this.setData({ 'bookForm.isbn': options.isbn });
+      this.fetchBookInfoByISBN(options.isbn);
     }
   },
 
@@ -316,11 +314,13 @@ Page({
   // 表单输入处理
   onInputChange(e) {
     const { field } = e.currentTarget.dataset;
-    const { value } = e.detail;
+    const value = e.detail || '';
     
     this.setData({
       [`bookForm.${field}`]: value
     });
+    
+    console.log('表单字段更新:', field, '值:', value);
   },
 
   // 加载所有分类
@@ -436,257 +436,143 @@ Page({
     })
   },
 
-  // 上传封面
-  uploadCover() {
-    wx.chooseImage({
-      count: 1,
-      sizeType: ['compressed'],
-      sourceType: ['album', 'camera'],
+  // 选择封面
+  chooseCover() {
+    // 提供用户选择：本地图片或输入网络图片URL
+    wx.showActionSheet({
+      itemList: ['从相册选择', '拍照', '输入图片网址', '使用扫描封面'],
       success: (res) => {
-        const tempFilePath = res.tempFilePaths[0];
-        
-        wx.showLoading({
-          title: '上传中...',
-        });
-        
-        // 上传图片到云存储
-        const cloudPath = `book-covers/${Date.now()}-${Math.floor(Math.random() * 1000)}.jpg`;
-        wx.cloud.uploadFile({
-          cloudPath: cloudPath,
-          filePath: tempFilePath,
-          success: res => {
-            // 获取图片的云存储链接
-            const fileID = res.fileID;
+        if (res.tapIndex === 0 || res.tapIndex === 1) {
+          // 选择本地图片或拍照
+          wx.chooseImage({
+            count: 1,
+            sizeType: ['compressed'],
+            sourceType: res.tapIndex === 0 ? ['album'] : ['camera'],
+            success: (res) => {
+              const tempFilePath = res.tempFilePaths[0];
+              
+              // 直接使用临时路径作为封面
+              this.setData({
+                'bookForm.coverUrl': tempFilePath,
+                coverSource: 'local' // 标记为本地图片
+              });
+              
+              wx.showToast({
+                title: '图片已选择',
+                icon: 'success'
+              });
+            }
+          });
+        } else if (res.tapIndex === 2) {
+          // 输入网络图片URL
+          this.showInputImageUrlDialog();
+        } else if (res.tapIndex === 3) {
+          // 使用扫描获取的封面
+          if (this.data.bookInfo && this.data.bookInfo.coverUrl) {
             this.setData({
-              'bookForm.coverUrl': fileID
+              'bookForm.coverUrl': this.data.bookInfo.coverUrl,
+              coverSource: 'network' // 标记为网络图片
             });
-            wx.hideLoading();
             wx.showToast({
-              title: '上传成功',
+              title: '已使用扫描封面',
               icon: 'success'
             });
-          },
-          fail: err => {
-            console.error('上传失败', err);
-            wx.hideLoading();
+          } else {
             wx.showToast({
-              title: '上传失败',
+              title: '没有扫描封面',
               icon: 'none'
-            });
-            // 上传失败也要设置本地临时文件
-            this.setData({
-              'bookForm.coverUrl': tempFilePath
-            });
-          }
-        });
-      }
-    });
-  },
-
-  // 保存书籍
-  async saveBook() {
-    // 验证必填项
-    if (!this.data.bookForm.title) {
-      wx.showToast({
-        title: '请输入书名',
-        icon: 'none'
-      });
-      return;
-    }
-
-    // 检查ISBN是否重复
-    const existingBook = app.globalData.books.find(book => book.isbn === this.data.bookForm.isbn);
-    if (existingBook) {
-      wx.showModal({
-        title: '提示',
-        content: '该ISBN的图书已存在，是否查看已存在的图书？',
-        confirmText: '查看',
-        cancelText: '取消',
-        success: (res) => {
-          if (res.confirm) {
-            wx.navigateTo({
-              url: `/miniprogram/pages/bookDetail/bookDetail?id=${existingBook.id}`
             });
           }
         }
-      });
+      }
+    });
+  },
+  
+  // 显示输入图片URL的对话框
+  showInputImageUrlDialog() {
+    wx.showModal({
+      title: '输入图片URL',
+      editable: true,
+      placeholderText: 'https://example.com/image.jpg',
+      success: (res) => {
+        if (res.confirm && res.content) {
+          const imageUrl = res.content.trim();
+          
+          // 验证URL格式
+          if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+            this.setData({
+              'bookForm.coverUrl': imageUrl,
+              coverSource: 'network' // 标记为网络图片
+            });
+            
+            wx.showToast({
+              title: 'URL已设置',
+              icon: 'success'
+            });
+          } else {
+            wx.showToast({
+              title: '请输入有效的URL',
+              icon: 'none'
+            });
+          }
+        }
+      }
+    });
+  },
+  
+  // 保存图书
+  saveBook() {
+    // 验证必填项
+    if (!this.data.bookForm.title) {
+      this.showError('请输入书名');
       return;
     }
-
+    
     wx.showLoading({
       title: '保存中...',
     });
-
-    // 处理从API获取的远程图片URL
-    this.handleCoverImage().then(coverUrl => {
-      // 获取所有选中的分类名称
-      const categoryNames = this.getCategoryNames();
-      
-      // 构建图书数据，确保不包含_openid等系统字段
-      const { _openid, _id, ...cleanBookForm } = this.data.bookForm;
-      const bookData = {
-        ...cleanBookForm,
-        coverUrl: coverUrl,
-        categories: categoryNames
-      };
-
-      // 将图书数据保存到云数据库
-      wx.cloud.database().collection('books').add({
-        data: {
-          ...bookData,
-          addTime: new Date().getTime(),
-          borrowStatus: 'in', // 默认为在库状态
-          borrowHistory: []
-        },
-        success: res => {
-          const bookId = res._id;
-          
-          // 同时添加到本地全局数据
-          app.addBook({
-            ...bookData,
-            id: bookId,
-            addTime: new Date().getTime(),
-            borrowStatus: 'in'
-          });
-
-          wx.hideLoading();
-          
-          // 显示成功提示并询问是否继续添加
-          wx.showModal({
-            title: '添加成功',
-            content: '是否继续添加新书？',
-            confirmText: '继续添加',
-            cancelText: '返回书库',
-            success: (result) => {
-              if (result.confirm) {
-                // 重置表单
-                this.setData({
-                  bookForm: {
-                    title: '',
-                    author: '',
-                    publisher: '',
-                    publishDate: '',
-                    isbn: '',
-                    category: '',
-                    coverUrl: '',
-                    description: '',
-                    pages: '',
-                    price: '',
-                    binding: '',
-                    edition: '',
-                    format: ''
-                  },
-                  isbnValue: '',
-                  currentCategory: '',
-                  activeTab: 0,
-                  selectedCategories: [],  // 清空已选分类
-                  categoriesWithSelection: this.data.categoriesWithSelection.map(category => ({
-                    ...category,
-                    selected: false
-                  }))
-                });
-              } else {
-                // 返回书库
-                wx.navigateBack();
-              }
-            }
-          });
-        },
-        fail: err => {
-          console.error('保存失败', err);
-          wx.hideLoading();
-          wx.showToast({
-            title: '保存失败',
-            icon: 'none'
-          });
-        }
-      });
-    }).catch(err => {
-      console.error('处理封面图片失败', err);
-      wx.hideLoading();
-      wx.showToast({
-        title: '图片处理失败',
-        icon: 'none'
-      });
-    });
-  },
-
-  // 处理封面图片
-  handleCoverImage() {
-    return new Promise((resolve, reject) => {
-      const coverUrl = this.data.bookForm.coverUrl;
-      
-      // 如果没有封面或者已经是云存储路径，直接返回
-      if (!coverUrl || coverUrl.startsWith('cloud://')) {
-        resolve(coverUrl);
-        return;
-      }
-      
-      // 如果是远程图片URL（API返回的图片），下载后再上传到云存储
-      if (coverUrl.startsWith('http')) {
-        wx.showLoading({
-          title: '处理封面...',
+    
+    const bookData = {
+      title: this.data.bookForm.title,
+      author: this.data.bookForm.author,
+      publisher: this.data.bookForm.publisher,
+      publishDate: this.data.bookForm.publishDate,
+      isbn: this.data.bookForm.isbn,
+      pages: this.data.bookForm.pages,
+      price: this.data.bookForm.price,
+      binding: this.data.bookForm.binding,
+      edition: this.data.bookForm.edition,
+      format: this.data.bookForm.format,
+      description: this.data.bookForm.description,
+      coverUrl: this.data.bookForm.coverUrl,
+      coverSource: this.data.coverSource || 'network',
+      category: this.data.currentCategory,
+      categories: this.data.currentCategory ? [this.data.currentCategory] : [],
+      borrowStatus: 'in',
+      addTime: wx.cloud.database().serverDate()
+    };
+    
+    // 保存到云数据库
+    wx.cloud.database().collection('books').add({
+      data: bookData,
+      success: (res) => {
+        wx.hideLoading();
+        wx.showToast({
+          title: '保存成功',
+          icon: 'success'
         });
         
-        // 下载远程图片
-        wx.downloadFile({
-          url: coverUrl,
-          success: res => {
-            if (res.statusCode === 200) {
-              const tempFilePath = res.tempFilePath;
-              
-              // 上传到云存储
-              const cloudPath = `book-covers/${Date.now()}-${Math.floor(Math.random() * 1000)}.jpg`;
-              wx.cloud.uploadFile({
-                cloudPath: cloudPath,
-                filePath: tempFilePath,
-                success: res => {
-                  const fileID = res.fileID;
-                  resolve(fileID);
-                },
-                fail: err => {
-                  console.error('上传到云存储失败', err);
-                  // 失败时使用原始URL
-                  resolve(coverUrl);
-                }
-              });
-            } else {
-              console.error('下载远程图片失败', res);
-              // 失败时使用原始URL
-              resolve(coverUrl);
-            }
-          },
-          fail: err => {
-            console.error('下载远程图片失败', err);
-            // 失败时使用原始URL
-            resolve(coverUrl);
-          }
-        });
-      } else {
-        // 本地临时路径，直接上传到云存储
-        const cloudPath = `book-covers/${Date.now()}-${Math.floor(Math.random() * 1000)}.jpg`;
-        wx.cloud.uploadFile({
-          cloudPath: cloudPath,
-          filePath: coverUrl,
-          success: res => {
-            const fileID = res.fileID;
-            resolve(fileID);
-          },
-          fail: err => {
-            console.error('上传到云存储失败', err);
-            // 失败时使用原始路径
-            resolve(coverUrl);
-          }
-        });
+        // 返回上一页
+        setTimeout(() => {
+          wx.navigateBack();
+        }, 1500);
+      },
+      fail: (err) => {
+        console.error('保存图书失败', err);
+        wx.hideLoading();
+        this.showError('保存失败：' + err.errMsg);
       }
     });
-  },
-
-  // 获取所有选中的分类名称
-  getCategoryNames() {
-    return this.data.categoriesWithSelection
-      .filter(category => category.selected)
-      .map(category => category.name);
   },
 
   // 显示添加分类弹窗
@@ -796,5 +682,54 @@ Page({
       categoriesWithSelection,
       selectedCategories
     });
+  },
+
+  // 通过ISBN获取图书信息
+  fetchBookInfoByISBN: function(isbn) {
+    this.setData({ loading: true });
+    
+    bookUtils.fetchBookInfoByISBN(isbn)
+      .then(bookInfo => {
+        this.setData({
+          bookForm: {
+            title: bookInfo.title,
+            author: bookInfo.author,
+            publisher: bookInfo.publisher,
+            publishDate: bookInfo.publishDate,
+            isbn: isbn,
+            description: bookInfo.description,
+            coverUrl: bookInfo.coverUrl,
+            pages: bookInfo.pages,
+            price: bookInfo.price,
+            binding: bookInfo.binding
+          },
+          coverSource: 'network',
+          bookInfo: bookInfo,
+          loading: false
+        });
+      })
+      .catch(err => {
+        console.error('获取图书信息失败：', err);
+        this.setData({ 
+          loading: false,
+          'bookForm.isbn': isbn  // 保留ISBN
+        });
+        this.showError('未找到图书信息，请手动输入');
+      });
+  },
+
+  // 显示错误提示
+  showError: function(msg) {
+    this.setData({
+      showError: true,
+      errorMsg: msg
+    });
+    
+    setTimeout(() => {
+      this.setData({
+        showError: false,
+        errorMsg: ''
+      });
+    }, 3000);
   },
 }) 
