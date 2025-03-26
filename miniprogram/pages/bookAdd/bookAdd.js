@@ -34,7 +34,9 @@ Page({
     loading: false,
     showError: false,
     errorMsg: '',
-    currentCategory: null
+    currentCategory: null,
+    isSaving: false,          // 是否正在保存中，防止重复提交
+    lastSubmitTime: 0         // 上次提交时间，用于防抖
   },
 
   onLoad: function(options) {
@@ -51,6 +53,21 @@ Page({
       this.setData({ 'bookForm.isbn': options.isbn });
       this.fetchBookInfoByISBN(options.isbn);
     }
+  },
+
+  // 页面卸载时重置状态
+  onUnload: function() {
+    this.setData({
+      isSaving: false,
+      lastSubmitTime: 0
+    });
+  },
+  
+  // 页面隐藏时重置状态
+  onHide: function() {
+    this.setData({
+      isSaving: false
+    });
   },
 
   // 加载图书数据（编辑模式）
@@ -420,8 +437,24 @@ Page({
     
     console.log('选择后selectedCategories:', JSON.stringify(newSelectedCategories));
     
+    // 更新categoriesWithSelection中的选中状态
+    const categoriesWithSelection = this.data.categoriesWithSelection.map(category => {
+      return {
+        ...category,
+        selected: newSelectedCategories.includes(category._id)
+      };
+    });
+    
+    // 更新currentCategory
+    let currentCategory = null;
+    if (newSelectedCategories.length > 0) {
+      currentCategory = newSelectedCategories[0];
+    }
+    
     this.setData({
-      selectedCategories: newSelectedCategories
+      selectedCategories: newSelectedCategories,
+      categoriesWithSelection: categoriesWithSelection,
+      currentCategory: currentCategory
     });
   },
   
@@ -522,15 +555,246 @@ Page({
   
   // 保存图书
   saveBook() {
+    console.log('开始保存图书...');
+    
     // 验证必填项
     if (!this.data.bookForm.title) {
       this.showError('请输入书名');
       return;
     }
     
+    // 防抖：检查是否在保存中和时间间隔
+    if (this.data.isSaving) {
+      console.log('保存操作正在进行中，请勿重复提交');
+      wx.showToast({
+        title: '请勿重复提交',
+        icon: 'none'
+      });
+      return;
+    }
+    
+    // 检查是否短时间内重复提交（3秒内）
+    const now = Date.now();
+    if (now - this.data.lastSubmitTime < 3000) {
+      console.log('提交过于频繁，请稍后再试');
+      wx.showToast({
+        title: '操作过于频繁',
+        icon: 'none'
+      });
+      return;
+    }
+    
+    // 设置保存状态和时间戳
+    this.setData({
+      isSaving: true,
+      lastSubmitTime: now
+    });
+    
+    // 检查ISBN是否为空
+    const isbn = this.data.bookForm.isbn ? this.data.bookForm.isbn.trim() : '';
+    console.log('检查ISBN:', isbn);
+    
     wx.showLoading({
       title: '保存中...',
     });
+    
+    // 如果有ISBN，先检查是否存在相同ISBN的书籍
+    if (isbn) {
+      console.log('ISBN不为空，开始检查是否存在重复...');
+      const db = wx.cloud.database();
+      
+      db.collection('books')
+        .where({
+          isbn: isbn
+        })
+        .get()
+        .then(res => {
+          console.log('ISBN查询结果:', res.data);
+          if (res.data && res.data.length > 0) {
+            // 已存在相同ISBN的书籍
+            wx.hideLoading();
+            this.setData({ isSaving: false }); // 重置保存状态
+            
+            // 获取已存在书籍的ID
+            const existingBookId = res.data[0]._id;
+            console.log('找到已存在的书籍ID:', existingBookId);
+            
+            wx.showModal({
+              title: '提示',
+              content: '该书籍已存在，是否查看详情？',
+              confirmText: '查看详情',
+              cancelText: '继续编辑',
+              success: (result) => {
+                if (result.confirm) {
+                  // 用户选择查看详情，跳转到书籍详情页
+                  console.log('用户选择查看详情，准备跳转到:', `/pages/bookDetail/bookDetail?id=${existingBookId}`);
+                  
+                  // 使用switchTab+navigateTo的组合解决可能的跳转问题
+                  try {
+                    wx.navigateTo({
+                      url: `../bookDetail/bookDetail?id=${existingBookId}`,
+                      success: function() {
+                        console.log('跳转成功');
+                      },
+                      fail: function(error) {
+                        console.error('navigateTo失败:', error);
+                        
+                        // 如果直接跳转失败，可能是在tabBar页面，尝试用redirectTo
+                        wx.redirectTo({
+                          url: `../bookDetail/bookDetail?id=${existingBookId}`,
+                          success: function() {
+                            console.log('redirectTo跳转成功');
+                          },
+                          fail: function(err) {
+                            console.error('redirectTo也失败:', err);
+                            
+                            // 最后尝试使用reLaunch
+                            wx.reLaunch({
+                              url: `../bookDetail/bookDetail?id=${existingBookId}`,
+                              success: function() {
+                                console.log('reLaunch跳转成功');
+                              },
+                              fail: function(e) {
+                                console.error('所有跳转方式都失败:', e);
+                              }
+                            });
+                          }
+                        });
+                      }
+                    });
+                  } catch (err) {
+                    console.error('跳转过程中发生异常:', err);
+                  }
+                } else {
+                  console.log('用户选择继续编辑');
+                }
+              }
+            });
+            return;
+          } else {
+            // 如果ISBN没有重复，再检查标题+作者组合是否重复
+            this.checkTitleAuthorDuplicate();
+          }
+        })
+        .catch(err => {
+          console.error('检查ISBN失败', err);
+          this.setData({ isSaving: false }); // 重置保存状态
+          wx.hideLoading();
+          wx.showToast({
+            title: '检查ISBN失败',
+            icon: 'none'
+          });
+        });
+    } else {
+      // 没有ISBN，检查标题+作者组合是否重复
+      this.checkTitleAuthorDuplicate();
+    }
+  },
+  
+  // 检查标题+作者组合是否重复
+  checkTitleAuthorDuplicate() {
+    const title = this.data.bookForm.title.trim();
+    const author = this.data.bookForm.author.trim();
+    
+    // 如果没有标题或作者，直接保存
+    if (!title || !author) {
+      this.saveBookToCloud();
+      return;
+    }
+    
+    console.log('检查标题+作者组合是否重复:', title, author);
+    
+    const db = wx.cloud.database();
+    const _ = db.command;
+    
+    db.collection('books')
+      .where({
+        title: title,
+        author: author
+      })
+      .get()
+      .then(res => {
+        console.log('标题+作者查询结果:', res.data);
+        if (res.data && res.data.length > 0) {
+          // 已存在相同标题+作者的书籍
+          wx.hideLoading();
+          this.setData({ isSaving: false }); // 重置保存状态
+          
+          // 获取已存在书籍的ID
+          const existingBookId = res.data[0]._id;
+          console.log('找到已存在的书籍ID:', existingBookId);
+          
+          wx.showModal({
+            title: '提示',
+            content: '已存在相同标题和作者的书籍，可能是重复添加，是否查看详情？',
+            confirmText: '查看详情',
+            cancelText: '仍然添加',
+            success: (result) => {
+              if (result.confirm) {
+                // 用户选择查看详情，跳转到书籍详情页
+                console.log('用户选择查看详情，准备跳转到:', `../bookDetail/bookDetail?id=${existingBookId}`);
+                
+                try {
+                  wx.navigateTo({
+                    url: `../bookDetail/bookDetail?id=${existingBookId}`,
+                    success: function() {
+                      console.log('跳转成功');
+                    },
+                    fail: function(error) {
+                      console.error('navigateTo失败:', error);
+                      
+                      // 尝试其他跳转方式
+                      wx.redirectTo({
+                        url: `../bookDetail/bookDetail?id=${existingBookId}`,
+                        fail: function(err) {
+                          console.error('redirectTo也失败:', err);
+                          wx.reLaunch({
+                            url: `../bookDetail/bookDetail?id=${existingBookId}`
+                          });
+                        }
+                      });
+                    }
+                  });
+                } catch (err) {
+                  console.error('跳转过程中发生异常:', err);
+                }
+              } else {
+                console.log('用户选择仍然添加，继续保存');
+                this.saveBookToCloud();
+              }
+            }
+          });
+        } else {
+          // 不存在重复，继续保存
+          this.saveBookToCloud();
+        }
+      })
+      .catch(err => {
+        console.error('检查标题+作者失败', err);
+        // 出错时继续保存
+        this.saveBookToCloud();
+      });
+  },
+  
+  // 保存书籍到云数据库
+  saveBookToCloud() {
+    // 将分类ID转换为分类名称
+    const categoryNames = [];
+    let categoryName = null;
+    
+    if (this.data.selectedCategories && this.data.selectedCategories.length > 0) {
+      // 遍历选中的分类ID，找出对应的分类名称
+      this.data.selectedCategories.forEach(categoryId => {
+        const categoryObj = this.data.categoriesWithSelection.find(item => item._id === categoryId);
+        if (categoryObj) {
+          categoryNames.push(categoryObj.name);
+          // 设置第一个选中的分类为主分类
+          if (!categoryName) {
+            categoryName = categoryObj.name;
+          }
+        }
+      });
+    }
     
     const bookData = {
       title: this.data.bookForm.title,
@@ -546,8 +810,8 @@ Page({
       description: this.data.bookForm.description,
       coverUrl: this.data.bookForm.coverUrl,
       coverSource: this.data.coverSource || 'network',
-      category: this.data.currentCategory,
-      categories: this.data.currentCategory ? [this.data.currentCategory] : [],
+      category: categoryName || '其他',
+      categories: categoryNames.length > 0 ? categoryNames : ['其他'],
       borrowStatus: 'in',
       addTime: wx.cloud.database().serverDate()
     };
@@ -557,6 +821,7 @@ Page({
       data: bookData,
       success: (res) => {
         wx.hideLoading();
+        this.setData({ isSaving: false }); // 重置保存状态
         wx.showToast({
           title: '保存成功',
           icon: 'success'
@@ -570,6 +835,7 @@ Page({
       fail: (err) => {
         console.error('保存图书失败', err);
         wx.hideLoading();
+        this.setData({ isSaving: false }); // 重置保存状态
         this.showError('保存失败：' + err.errMsg);
       }
     });
@@ -678,9 +944,17 @@ Page({
       .filter(category => category.selected)
       .map(category => category._id);
     
+    // 更新currentCategory，使用选中的第一个分类作为当前分类
+    let currentCategory = null;
+    if (selectedCategories.length > 0) {
+      const selectedCategory = categoriesWithSelection.find(c => c.selected);
+      currentCategory = selectedCategory ? selectedCategory._id : null;
+    }
+    
     this.setData({
       categoriesWithSelection,
-      selectedCategories
+      selectedCategories,
+      currentCategory // 添加更新currentCategory
     });
   },
 

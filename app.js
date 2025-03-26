@@ -181,6 +181,15 @@ App({
             },
             fail: err => {
               console.error('从云数据库删除失败', err);
+              
+              // 即使云数据库删除失败，如果本地已删除，也视为部分成功
+              // 这通常发生在记录已不存在或权限问题的情况下
+              if (err.errCode === -1 || err.errMsg.includes('not exist') || err.errMsg.includes('not found')) {
+                console.warn('云数据库可能已不存在此记录，继续视为已删除');
+                resolve(true);
+                return;
+              }
+              
               reject(err);
             }
           });

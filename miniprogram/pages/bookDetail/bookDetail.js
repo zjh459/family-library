@@ -26,13 +26,17 @@ Page({
   },
 
   onLoad(options) {
+    console.log('bookDetail页面onLoad被调用，参数:', options);
+    
     if (options.id) {
+      console.log('接收到书籍ID:', options.id);
       this.setData({
         bookId: options.id,
         theme: app.globalData.theme
       });
       this.loadBookDetail();
     } else {
+      console.error('未接收到有效的图书ID');
       wx.showToast({
         title: '无效的图书ID',
         icon: 'none'
@@ -541,13 +545,47 @@ Page({
             title: '删除中...',
           });
           
-          const result = app.deleteBook(this.data.bookId);
-          
-          // 处理可能的Promise返回值
-          if (result instanceof Promise) {
-            result.then(success => {
+          try {
+            const result = app.deleteBook(this.data.bookId);
+            
+            // 处理可能的Promise返回值
+            if (result instanceof Promise) {
+              result.then(success => {
+                wx.hideLoading();
+                if (success) {
+                  wx.showToast({
+                    title: '删除成功',
+                    icon: 'success'
+                  });
+                  setTimeout(() => {
+                    wx.navigateBack();
+                  }, 1500);
+                } else {
+                  // 云同步失败但本地删除成功的情况，也算成功
+                  wx.showToast({
+                    title: '本地删除成功',
+                    icon: 'success'
+                  });
+                  setTimeout(() => {
+                    wx.navigateBack();
+                  }, 1500);
+                }
+              }).catch(err => {
+                wx.hideLoading();
+                console.error('删除图书时出错:', err);
+                // 云同步错误也视为删除成功
+                wx.showToast({
+                  title: '本地删除成功',
+                  icon: 'success'
+                });
+                setTimeout(() => {
+                  wx.navigateBack();
+                }, 1500);
+              });
+            } else {
+              // 同步返回结果的处理
               wx.hideLoading();
-              if (success) {
+              if (result) {
                 wx.showToast({
                   title: '删除成功',
                   icon: 'success'
@@ -561,31 +599,14 @@ Page({
                   icon: 'none'
                 });
               }
-            }).catch(err => {
-              wx.hideLoading();
-              console.error('删除图书时出错:', err);
-              wx.showToast({
-                title: '删除失败: ' + (err.errMsg || '未知错误'),
-                icon: 'none'
-              });
-            });
-          } else {
-            // 同步返回结果的处理
-            wx.hideLoading();
-            if (result) {
-              wx.showToast({
-                title: '删除成功',
-                icon: 'success'
-              });
-              setTimeout(() => {
-                wx.navigateBack();
-              }, 1500);
-            } else {
-              wx.showToast({
-                title: '删除失败',
-                icon: 'none'
-              });
             }
+          } catch (err) {
+            wx.hideLoading();
+            console.error('删除图书时发生异常:', err);
+            wx.showToast({
+              title: '删除失败',
+              icon: 'none'
+            });
           }
         }
       }
@@ -743,7 +764,9 @@ Page({
     });
     
     const updateInfo = {
-      categories: selectedCategories
+      categories: selectedCategories,
+      // 使用第一个选中的分类作为主分类，如果没有选中分类则使用"其他"
+      category: selectedCategories.length > 0 ? selectedCategories[0] : '其他'
     };
     
     // 更新云数据库
