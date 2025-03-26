@@ -10,10 +10,10 @@
   ],
   "window": {
     "backgroundTextStyle": "light",
-    "navigationBarBackgroundColor": "#C8D8C7",
-    "navigationBarTitleText": "家庭图书馆",
+    "navigationBarBackgroundColor": "#fff",
+    "navigationBarTitleText": "稻米小屋",
     "navigationBarTextStyle": "black",
-    "backgroundColor": "#FFF5E6"
+    "backgroundColor": "#f8f8f8"
   },
   "style": "v2",
   "sitemapLocation": "sitemap.json",

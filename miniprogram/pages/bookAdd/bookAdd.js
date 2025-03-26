@@ -23,6 +23,7 @@ Page({
     },
     categories: [],           // 所有分类
     selectedCategories: [],   // 已选分类
+    categoriesWithSelection: [], // 带选中状态的分类
     showCategoryPickerModal: false,
     theme: {},
     showAddCategoryModal: false,
@@ -327,9 +328,19 @@ Page({
     try {
       const db = wx.cloud.database()
       const res = await db.collection('categories').get()
+      
+      // 为每个分类添加选中状态
+      const categoriesWithSelection = res.data.map(category => ({
+        ...category,
+        selected: false
+      }));
+      
       this.setData({
-        categories: res.data
+        categories: res.data,
+        categoriesWithSelection: categoriesWithSelection
       })
+      console.log('加载分类成功，分类数量:', res.data.length);
+      console.log('当前已选分类:', this.data.selectedCategories);
     } catch (err) {
       console.error('加载分类失败：', err)
     }
@@ -351,8 +362,17 @@ Page({
           }
         })
         
+        // 更新选中状态
+        const categoriesWithSelection = this.data.categoriesWithSelection.map(category => {
+          return {
+            ...category,
+            selected: book.data.categories.includes(category.name)
+          };
+        });
+        
         this.setData({
-          selectedCategories: categoryIds
+          selectedCategories: categoryIds,
+          categoriesWithSelection
         })
       }
     } catch (err) {
@@ -377,7 +397,13 @@ Page({
   // 选择/取消选择分类
   toggleCategory(e) {
     const categoryId = e.currentTarget.dataset.id;
-    if (!categoryId) return; // 确保id存在
+    if (!categoryId) {
+      console.error('获取分类ID失败:', e.currentTarget.dataset);
+      return; // 确保id存在
+    }
+    
+    console.log('toggleCategory被调用，分类ID:', categoryId);
+    console.log('选择前selectedCategories:', JSON.stringify(this.data.selectedCategories));
     
     const index = this.data.selectedCategories.indexOf(categoryId);
     const newSelectedCategories = [...this.data.selectedCategories];
@@ -385,10 +411,14 @@ Page({
     if (index === -1) {
       // 添加分类
       newSelectedCategories.push(categoryId);
+      console.log('添加分类:', categoryId);
     } else {
       // 移除分类
       newSelectedCategories.splice(index, 1);
+      console.log('移除分类:', categoryId);
     }
+    
+    console.log('选择后selectedCategories:', JSON.stringify(newSelectedCategories));
     
     this.setData({
       selectedCategories: newSelectedCategories
@@ -549,7 +579,11 @@ Page({
                   isbnValue: '',
                   currentCategory: '',
                   activeTab: 0,
-                  selectedCategories: []  // 清空已选分类
+                  selectedCategories: [],  // 清空已选分类
+                  categoriesWithSelection: this.data.categoriesWithSelection.map(category => ({
+                    ...category,
+                    selected: false
+                  }))
                 });
               } else {
                 // 返回书库
@@ -650,8 +684,8 @@ Page({
 
   // 获取所有选中的分类名称
   getCategoryNames() {
-    return this.data.categories
-      .filter(category => this.data.selectedCategories.includes(category._id))
+    return this.data.categoriesWithSelection
+      .filter(category => category.selected)
       .map(category => category.name);
   },
 
@@ -700,14 +734,25 @@ Page({
 
       // 添加成功后，刷新分类列表并选中新添加的分类
       if (result._id) {
-        // 刷新分类列表
-        this.loadCategories().then(() => {
-          // 选中新添加的分类
-          const newSelectedCategories = [...this.data.selectedCategories];
-          newSelectedCategories.push(result._id);
-          this.setData({
-            selectedCategories: newSelectedCategories
-          });
+        // 获取新添加的分类完整信息
+        const newCategory = await db.collection('categories').doc(result._id).get();
+        
+        // 添加到分类列表并设置为选中
+        const newSelectedCategories = [...this.data.selectedCategories, result._id];
+        
+        // 更新categoriesWithSelection
+        const newCategoriesWithSelection = [
+          ...this.data.categoriesWithSelection,
+          {
+            ...newCategory.data,
+            selected: true
+          }
+        ];
+        
+        this.setData({
+          categories: [...this.data.categories, newCategory.data],
+          selectedCategories: newSelectedCategories,
+          categoriesWithSelection: newCategoriesWithSelection
         });
 
         wx.showToast({
@@ -722,5 +767,34 @@ Page({
         icon: 'none'
       });
     }
+  },
+
+  // 通过索引切换分类选中状态
+  toggleCategoryByIndex(e) {
+    const index = e.currentTarget.dataset.index;
+    if (index === undefined || index === null) {
+      console.error('无效的分类索引');
+      return;
+    }
+    
+    console.log('切换分类索引:', index);
+    
+    // 获取当前的分类列表和选中状态
+    const categoriesWithSelection = [...this.data.categoriesWithSelection];
+    
+    // 切换选中状态
+    categoriesWithSelection[index].selected = !categoriesWithSelection[index].selected;
+    
+    console.log('分类', categoriesWithSelection[index].name, '的新状态:', categoriesWithSelection[index].selected);
+    
+    // 同时更新selectedCategories数组，保持两种方式的兼容性
+    const selectedCategories = categoriesWithSelection
+      .filter(category => category.selected)
+      .map(category => category._id);
+    
+    this.setData({
+      categoriesWithSelection,
+      selectedCategories
+    });
   },
 }) 

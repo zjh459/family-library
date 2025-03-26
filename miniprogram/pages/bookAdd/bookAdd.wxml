@@ -114,19 +114,19 @@
           <view class="form-item">
             <view class="form-label">分类标签</view>
             <view class="category-tags">
-              <view 
-                class="category-tag {{selectedCategories.indexOf(category._id) !== -1 ? 'active' : ''}}" 
-                wx:for="{{categories}}" 
-                wx:key="_id" 
-                wx:for-item="category"
-                bindtap="toggleCategory" 
-                data-id="{{category._id}}"
-                data-name="{{category.name}}"
-                style="{{selectedCategories.indexOf(category._id) !== -1 ? 'background-color:' + theme.accentColor + ';color:white' : ''}}"
-              >
-                <text>{{category.name}}</text>
-                <text wx:if="{{selectedCategories.indexOf(category._id) !== -1}}" class="selected-mark">✓</text>
-              </view>
+              <block wx:for="{{categoriesWithSelection}}" wx:key="_id">
+                <view 
+                  class="category-tag {{item.selected ? 'active' : ''}}" 
+                  bindtap="toggleCategoryByIndex" 
+                  data-index="{{index}}"
+                  style="{{item.selected ? 'background-color:' + theme.accentColor + ';color:white' : ''}}"
+                >
+                  {{item.name}}
+                  <view class="check-container" wx:if="{{item.selected}}">
+                    <text class="selected-mark">✓</text>
+                  </view>
+                </view>
+              </block>
               <view class="category-tag add-tag" bindtap="showAddCategoryModal">
                 <van-icon name="plus" size="14px" /> 添加新分类
               </view>
@@ -214,14 +214,19 @@
       <view class="category-picker-body">
         <view class="category-picker-list">
           <view 
-            class="category-picker-item {{selectedCategories.includes(item.name) ? 'selected' : ''}}" 
+            class="category-picker-item {{selectedCategories.indexOf(item._id) !== -1 ? 'selected' : ''}}" 
             wx:for="{{categories}}" 
             wx:key="_id"
             bindtap="toggleCategory"
-            data-category="{{item.name}}"
+            data-id="{{item._id}}"
+            data-name="{{item.name}}"
           >
             {{item.name}}
-            <text class="category-check" wx:if="{{selectedCategories.includes(item.name)}}">✓</text>
+            <view class="category-check-container">
+              <view class="category-check {{selectedCategories.indexOf(item._id) !== -1 ? 'selected' : ''}}">
+                <text wx:if="{{selectedCategories.indexOf(item._id) !== -1}}">✓</text>
+              </view>
+            </view>
           </view>
         </view>
         <view class="category-picker-empty" wx:if="{{categories.length === 0}}">

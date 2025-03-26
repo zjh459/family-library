@@ -1,15 +1,21 @@
 <!--pages/index/index.wxml-->
 <view class="container">
   <view class="header">
-    <view class="header-title">我的家庭图书馆</view>
-    <van-search
-      value="{{ searchValue }}"
-      placeholder="搜索书名或作者"
-      bind:change="onSearchChange"
-      bind:search="onSearch"
-      shape="round"
-      background="transparent"
-    />
+    <view class="header-title">稻米小屋</view>
+    <view class="search-container">
+      <van-search
+        class="search-box"
+        value="{{ searchValue }}"
+        placeholder="搜索书名或作者"
+        bind:change="onSearchChange"
+        bind:search="onSearch"
+        shape="round"
+        background="transparent"
+      />
+      <view class="scan-btn" bindtap="scanCode">
+        <image src="/images/scan.png" class="icon"></image>
+      </view>
+    </view>
   </view>
   
   <!-- 分类 -->

@@ -20,6 +20,30 @@
   color: var(--text-color);
 }
 
+.search-container {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.search-box {
+  flex: 1;
+}
+
+.scan-btn {
+  width: 70rpx;
+  height: 70rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 15rpx;
+}
+
+.scan-btn .icon {
+  width: 40rpx;
+  height: 40rpx;
+}
+
 .search-bar {
   display: flex;
   align-items: center;

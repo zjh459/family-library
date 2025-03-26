@@ -30,6 +30,7 @@ Page({
   // 加载图书数据
   loadBooks() {
     db.collection('books')
+      .orderBy('addTime', 'desc') // 按添加时间倒序排列
       .get()
       .then(res => {
         this.setData({
@@ -136,12 +137,35 @@ Page({
     });
   },
 
-  // 分享
+  // 扫码添加图书
+  scanCode() {
+    wx.scanCode({
+      success: (res) => {
+        console.log('扫码结果:', res);
+        // 如果是ISBN码，跳转到添加页面
+        if (res.scanType === 'EAN_13' || res.scanType === 'EAN_10') {
+          wx.navigateTo({
+            url: `../bookAdd/bookAdd?isbn=${res.result}`
+          });
+        } else {
+          wx.showToast({
+            title: '不是有效的ISBN码',
+            icon: 'none'
+          });
+        }
+      },
+      fail: (err) => {
+        console.error('扫码失败:', err);
+      }
+    });
+  },
+
+  // 分享页面
   onShareAppMessage() {
     return {
-      title: '我的家庭图书馆',
-      path: '/miniprogram/pages/index/index'
-    };
+      title: '稻米小屋',
+      path: '/miniprogram/pages/welcome/welcome'
+    }
   },
 
   // 加载分类

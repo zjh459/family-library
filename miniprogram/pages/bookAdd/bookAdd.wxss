@@ -150,22 +150,29 @@
   padding: 12rpx 24rpx;
   border-radius: 30rpx;
   font-size: 26rpx;
-  display: flex;
-  align-items: center;
-  transition: all 0.2s;
   margin: 0 16rpx 16rpx 0;
-  background-color: var(--secondary-color);
-}
-
-.selected-mark {
-  margin-left: 10rpx;
-  font-weight: bold;
+  background-color: #f5f5f5;
+  color: #666;
+  position: relative;
 }
 
 .category-tag.active {
+  background-color: var(--accent-color);
+  color: white;
   font-weight: bold;
-  transform: translateY(-2rpx);
-  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.15);
+}
+
+.check-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 8rpx;
+}
+
+.selected-mark {
+  font-weight: bold;
+  font-size: 24rpx;
+  color: white;
 }
 
 .remove-category {
@@ -265,9 +272,27 @@
   color: #4CAF50;
 }
 
+.category-check-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .category-check {
-  color: #4CAF50;
-  font-size: 32rpx;
+  width: 40rpx;
+  height: 40rpx;
+  border-radius: 50%;
+  border: 2rpx solid #e0e0e0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 24rpx;
+}
+
+.category-check.selected {
+  background-color: #4CAF50;
+  border-color: #4CAF50;
 }
 
 .category-picker-empty {

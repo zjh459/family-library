@@ -85,12 +85,19 @@
   border-bottom: 1rpx solid var(--primary-color);
 }
 
+/* 未分类特殊样式 */
+.system-category {
+  background-color: rgba(var(--accent-color-rgb), 0.1);
+  border-left: 8rpx solid var(--accent-color);
+}
+
 .category-item:last-child {
   border-bottom: none;
 }
 
 .category-info {
   flex: 1;
+  padding: 5rpx 0;
 }
 
 .category-name {
@@ -102,6 +109,14 @@
 .category-count {
   font-size: 24rpx;
   color: var(--text-color);
+  position: relative;
+}
+
+.category-count::after {
+  content: '>';
+  margin-left: 5rpx;
+  font-size: 22rpx;
+  color: #999;
 }
 
 .category-actions {
@@ -109,13 +124,19 @@
 }
 
 .action-btn {
-  width: 70rpx;
-  height: 70rpx;
+  min-width: 100rpx;
+  height: 60rpx;
   display: flex;
   align-items: center;
   justify-content: center;
   margin-left: 10rpx;
-  border-radius: 50%;
+  border-radius: 30rpx;
+  padding: 0 20rpx;
+}
+
+.action-text {
+  font-size: 24rpx;
+  margin-left: 6rpx;
 }
 
 .action-btn.edit {

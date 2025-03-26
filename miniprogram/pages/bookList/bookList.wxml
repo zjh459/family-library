@@ -1,12 +1,17 @@
-<view class="container">
+<view class="container" style="background-color: {{theme.primaryColor || '#F5F5DC'}};">
+  <!-- 分类标题 -->
+  <view class="category-title" wx:if="{{categoryTitle}}">
+    <text>{{categoryTitle}}</text>
+  </view>
+
   <!-- 搜索栏 -->
   <view class="search-bar">
     <input type="text" placeholder="搜索书名、作者或ISBN" bindinput="onSearchInput" value="{{searchText}}" />
-    <view class="search-icon" bindtap="onSearch">搜索</view>
+    <view class="search-icon" bindtap="onSearch" style="color: {{theme.accentColor}};">搜索</view>
   </view>
 
   <!-- 分类筛选 -->
-  <view class="filter-bar">
+  <view class="filter-bar" wx:if="{{!categoryTitle}}">
     <picker 
       bindchange="onCategoryChange" 
       value="{{selectedCategory}}" 
@@ -15,7 +20,7 @@
     >
       <view class="picker">
         <text>分类：</text>
-        <text class="selected-value">{{selectedCategory ? selectedCategory : '全部'}}</text>
+        <text class="selected-value" style="color: {{theme.accentColor}};">{{selectedCategory ? selectedCategory : '全部'}}</text>
         <text class="arrow">▼</text>
       </view>
     </picker>
@@ -23,20 +28,25 @@
 
   <!-- 图书列表 -->
   <view class="book-list">
-    <view class="book-item" wx:for="{{books}}" wx:key="id" bindtap="goToDetail" data-id="{{item._id}}">
+    <view class="book-item" wx:for="{{books}}" wx:key="_id" bindtap="goToDetail" data-id="{{item._id}}">
       <view class="book-cover">
-        <image src="{{item.coverUrl || '/images/default-cover.png'}}" mode="aspectFill"></image>
+        <image src="{{item.coverUrl || '/miniprogram/images/default-cover.png'}}" mode="aspectFill"></image>
       </view>
       <view class="book-info">
         <view class="book-title">{{item.title}}</view>
         <view class="book-author">{{item.author}}</view>
         <view class="book-isbn">ISBN: {{item.isbn}}</view>
-        <view class="book-status {{item.status === '可借' ? 'available' : 'unavailable'}}">
-          {{item.status}}
+        <!-- 借阅状态 -->
+        <view class="book-status {{item.borrowStatus === 'in' ? 'available' : 'unavailable'}}">
+          {{item.borrowStatus === 'in' ? '在库' : '借出'}}
         </view>
         <!-- 显示分类标签 -->
         <view class="book-categories" wx:if="{{item.categories && item.categories.length > 0}}">
-          <view class="category-tag" wx:for="{{item.categories}}" wx:for-item="category" wx:key="*this">
+          <view class="category-tag" 
+                wx:for="{{item.categories}}" 
+                wx:for-item="category" 
+                wx:key="*this"
+                style="background-color: {{theme.secondaryColor || '#E8F5E9'}}; color: {{theme.accentColor}};">
             {{category}}
           </view>
         </view>
@@ -50,12 +60,12 @@
 
   <!-- 空状态 -->
   <view class="empty-state" wx:if="{{!loading && books.length === 0}}">
-    <image src="/images/empty.png" mode="aspectFit"></image>
+    <image src="/miniprogram/images/empty.png" mode="aspectFit"></image>
     <text>暂无图书</text>
   </view>
 
   <!-- 添加按钮 -->
-  <view class="add-btn" bindtap="goToAdd">
-    <text class="iconfont icon-add"></text>
+  <view class="add-btn" bindtap="goToAdd" style="background-color: {{theme.accentColor}};">
+    <text class="iconfont icon-add">+</text>
   </view>
 </view> 

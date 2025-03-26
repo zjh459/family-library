@@ -23,20 +23,26 @@
 
   <!-- 分类列表 -->
   <view class="category-list" wx:if="{{categories.length > 0}}">
-    <view class="category-item" wx:for="{{categories}}" wx:key="_id">
-      <view class="category-info">
-        <view class="category-name">{{item.name}}</view>
-        <view class="category-count">{{item.count || 0}} 本图书</view>
-      </view>
-      <view class="category-actions">
-        <view class="action-btn edit" bindtap="startEdit" data-category="{{item}}">
-          <text class="iconfont icon-edit"></text>
+    <block wx:for="{{categories}}" wx:key="_id">
+      <!-- 未分类类型使用特殊样式 -->
+      <view class="category-item {{item.isSystem ? 'system-category' : ''}}" data-category="{{item}}">
+        <view class="category-info" bindtap="viewCategoryBooks" data-category="{{item}}">
+          <view class="category-name">{{item.name}}</view>
+          <view class="category-count">{{item.count || 0}} 本图书</view>
         </view>
-        <view class="action-btn delete" bindtap="deleteCategory" data-id="{{item._id}}" data-name="{{item.name}}">
-          <text class="iconfont icon-delete"></text>
+        <!-- 只有非系统分类才显示编辑和删除按钮 -->
+        <view class="category-actions" wx:if="{{!item.isSystem}}">
+          <view class="action-btn edit" bindtap="startEdit" data-category="{{item}}">
+            <text class="iconfont icon-edit"></text>
+            <text class="action-text">编辑</text>
+          </view>
+          <view class="action-btn delete" bindtap="deleteCategory" data-id="{{item._id}}" data-name="{{item.name}}">
+            <text class="iconfont icon-delete"></text>
+            <text class="action-text">删除</text>
+          </view>
         </view>
       </view>
-    </view>
+    </block>
   </view>
 
   <!-- 空状态 -->

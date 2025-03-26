@@ -18,7 +18,9 @@ Page({
     allCategories: [],
     selectedCategories: [],
     categoriesWithSelection: [],
-    originalSelectedCategories: []
+    originalSelectedCategories: [],
+    newCategoryName: '',
+    showAddCategoryInput: false
   },
 
   onLoad(options) {
@@ -499,7 +501,7 @@ Page({
   // 分享
   onShareAppMessage() {
     return {
-      title: `我的藏书：${this.data.book?.title || '家庭图书馆'}`,
+      title: `我的藏书：${this.data.book?.title || '稻米小屋'}`,
       path: `/miniprogram/pages/bookDetail/bookDetail?id=${this.data.bookId}`
     };
   },
@@ -590,7 +592,9 @@ Page({
           this.setData({ 
             showCategoryModal: true,
             categoriesWithSelection: categoriesWithSelection,
-            originalSelectedCategories: [...selectedCategoryNames] // 保存原始选中，便于取消操作
+            originalSelectedCategories: [...selectedCategoryNames], // 保存原始选中，便于取消操作
+            newCategoryName: '', // 清空新分类名称
+            showAddCategoryInput: false // 初始不显示添加分类输入框
           });
         },
         fail: err => {
@@ -627,6 +631,109 @@ Page({
     console.log('切换分类:', categoriesWithSelection[index].name, '选中状态:', categoriesWithSelection[index].selected);
     
     this.setData({ categoriesWithSelection });
+  },
+
+  // 显示添加分类的输入框
+  showAddCategoryInput() {
+    this.setData({
+      showAddCategoryInput: true
+    });
+  },
+
+  // 处理新分类名称输入
+  onNewCategoryInput(e) {
+    this.setData({
+      newCategoryName: e.detail.value
+    });
+  },
+
+  // 添加新分类
+  addNewCategory() {
+    const newName = this.data.newCategoryName.trim();
+    
+    // 验证输入
+    if (!newName) {
+      wx.showToast({
+        title: '分类名称不能为空',
+        icon: 'none'
+      });
+      return;
+    }
+
+    // 检查是否已存在同名分类
+    const exists = this.data.categoriesWithSelection.some(category => 
+      category.name === newName
+    );
+    
+    if (exists) {
+      wx.showToast({
+        title: '该分类已存在',
+        icon: 'none'
+      });
+      return;
+    }
+
+    // 添加分类到云数据库
+    wx.showLoading({
+      title: '添加中...',
+    });
+    
+    if (wx.cloud) {
+      wx.cloud.database().collection('categories').add({
+        data: {
+          name: newName,
+          count: 0,
+          createTime: wx.cloud.database().serverDate()
+        },
+        success: res => {
+          wx.hideLoading();
+          
+          // 添加新分类到本地列表并自动选中
+          const newCategory = {
+            _id: res._id,
+            name: newName,
+            count: 0,
+            createTime: new Date(),
+            selected: true
+          };
+          
+          const categoriesWithSelection = [...this.data.categoriesWithSelection, newCategory];
+          
+          this.setData({
+            categoriesWithSelection,
+            newCategoryName: '',
+            showAddCategoryInput: false
+          });
+          
+          wx.showToast({
+            title: '添加成功',
+            icon: 'success'
+          });
+        },
+        fail: err => {
+          console.error('添加分类失败', err);
+          wx.hideLoading();
+          wx.showToast({
+            title: '添加失败',
+            icon: 'none'
+          });
+        }
+      });
+    } else {
+      wx.hideLoading();
+      wx.showToast({
+        title: '云开发未启用',
+        icon: 'none'
+      });
+    }
+  },
+
+  // 取消添加新分类
+  cancelAddCategory() {
+    this.setData({
+      newCategoryName: '',
+      showAddCategoryInput: false
+    });
   },
   
   // 保存分类变更

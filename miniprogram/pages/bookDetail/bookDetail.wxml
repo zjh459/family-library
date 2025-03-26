@@ -53,7 +53,7 @@
 
     <view class="action-buttons">
       <button class="edit-btn" bindtap="editBook">编辑</button>
-      <button class="manage-btn" bindtap="manageCategories">分类管理</button>
+      <button class="manage-btn" bindtap="manageCategories">分类</button>
       <button class="delete-btn" bindtap="deleteBook">删除</button>
     </view>
   </view>
@@ -204,18 +204,41 @@
     <view class="category-modal-overlay" bindtap="closeCategoryModal"></view>
     <view class="category-modal-content">
       <view class="category-modal-header">
-        <text class="category-modal-title">分类管理</text>
+        <text class="category-modal-title">分类</text>
         <text class="category-modal-close" bindtap="closeCategoryModal">×</text>
       </view>
       <view class="category-modal-body">
         <view class="category-list">
           <block wx:for="{{categoriesWithSelection}}" wx:key="_id" wx:for-index="idx">
             <view class="category-item {{item.selected ? 'active' : ''}}" 
-                  bindtap="toggleCategory" data-index="{{idx}}">
+                  bindtap="toggleCategory" data-index="{{idx}}"
+                  style="{{item.selected ? 'background-color:' + theme.accentColor + ';color:white' : ''}}">
               <text>{{item.name}}</text>
-              <text class="category-check" wx:if="{{item.selected}}">✓</text>
+              <view class="check-container" wx:if="{{item.selected}}">
+                <text class="category-check">✓</text>
+              </view>
             </view>
           </block>
+        </view>
+        
+        <!-- 添加分类按钮和输入框 -->
+        <view class="add-category-section">
+          <view wx:if="{{!showAddCategoryInput}}" class="add-category-btn" bindtap="showAddCategoryInput">
+            <van-icon name="plus" size="14px" /> 添加新分类
+          </view>
+          <view wx:else class="add-category-input-container">
+            <input 
+              class="add-category-input" 
+              placeholder="请输入分类名称" 
+              value="{{newCategoryName}}"
+              bindinput="onNewCategoryInput"
+              focus="true"
+            />
+            <view class="add-category-actions">
+              <view class="add-category-confirm" bindtap="addNewCategory">确定</view>
+              <view class="add-category-cancel" bindtap="cancelAddCategory">取消</view>
+            </view>
+          </view>
         </view>
       </view>
       <view class="category-modal-footer">

@@ -1,7 +1,16 @@
 .container {
   padding: 20rpx;
-  background: #f5f5f5;
   min-height: 100vh;
+}
+
+/* 分类标题样式 */
+.category-title {
+  font-size: 36rpx;
+  font-weight: bold;
+  color: #333;
+  padding: 20rpx 0;
+  text-align: center;
+  margin-bottom: 20rpx;
 }
 
 /* 搜索栏样式 */
@@ -26,7 +35,6 @@
 
 .search-icon {
   padding: 0 30rpx;
-  color: #4CAF50;
   font-size: 28rpx;
 }
 
@@ -138,7 +146,6 @@
   bottom: 40rpx;
   width: 100rpx;
   height: 100rpx;
-  background: #4CAF50;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -170,7 +177,6 @@
 }
 
 .selected-value {
-  color: #4CAF50;
   margin: 0 10rpx;
 }
 
@@ -190,8 +196,6 @@
 .category-tag {
   font-size: 22rpx;
   padding: 2rpx 10rpx;
-  background: #e8f5e9;
-  color: #4CAF50;
-  border-radius:.15rpx;
+  border-radius: 4rpx;
   display: inline-block;
 } 

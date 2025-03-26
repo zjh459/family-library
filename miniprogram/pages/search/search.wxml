@@ -54,9 +54,9 @@
       <view 
         class="book-card card" 
         wx:for="{{searchResults}}" 
-        wx:key="id"
+        wx:key="_id"
         bindtap="navigateToDetail"
-        data-id="{{item.id}}"
+        data-id="{{item._id}}"
       >
         <view class="book-card-content flex">
           <!-- 书籍封面 -->
@@ -73,7 +73,11 @@
               <view class="book-status {{item.borrowStatus === 'in' ? 'status-in' : 'status-out'}}">
                 {{item.borrowStatus === 'in' ? '在库' : '已借出'}}
               </view>
-              <view class="tag tag-accent" wx:if="{{item.category}}">{{item.category}}</view>
+              <view class="categories-container" wx:if="{{item.categories && item.categories.length > 0}}">
+                <view class="tag tag-accent" wx:for="{{item.categories}}" wx:for-item="categoryName" wx:key="*this">
+                  {{categoryName}}
+                </view>
+              </view>
             </view>
           </view>
         </view>
@@ -95,56 +99,94 @@
     custom-style="width: 80%; height: 100%;"
   >
     <view class="filter-popup">
-      <view class="filter-title">筛选条件</view>
-      
-      <!-- 分类筛选 -->
-      <view class="filter-section">
-        <view class="filter-section-title">图书分类</view>
-        <view class="filter-options">
-          <view 
-            class="filter-option {{currentCategory === item ? 'active' : ''}}" 
-            wx:for="{{categories}}" 
-            wx:key="*this"
-            bindtap="onCategorySelect"
-            data-value="{{item}}"
-          >
-            {{item}}
+      <view class="filter-content">
+        <view class="filter-title">筛选条件</view>
+        
+        <!-- 分类筛选 -->
+        <view class="filter-section">
+          <view class="filter-section-title">图书分类</view>
+          <view class="filter-options">
+            <view 
+              class="filter-option {{currentCategory === item ? 'active' : ''}}" 
+              wx:for="{{categories}}" 
+              wx:key="*this"
+              bindtap="onCategorySelect"
+              data-value="{{item}}"
+            >
+              {{item}}
+            </view>
           </view>
         </view>
-      </view>
-      
-      <!-- 出版年份筛选 -->
-      <view class="filter-section">
-        <view class="filter-section-title">出版年份</view>
-        <view class="filter-options">
-          <view 
-            class="filter-option {{currentPublishYear === item ? 'active' : ''}}" 
-            wx:for="{{publishYears}}" 
-            wx:key="*this"
-            bindtap="onPublishYearSelect"
-            data-value="{{item}}"
-          >
-            {{item}}
+        
+        <!-- 作者筛选 -->
+        <view class="filter-section">
+          <view class="filter-section-title">作者</view>
+          <view class="filter-options">
+            <view 
+              class="filter-option {{currentAuthor === item ? 'active' : ''}}" 
+              wx:for="{{authors}}" 
+              wx:key="*this"
+              bindtap="onAuthorSelect"
+              data-value="{{item}}"
+            >
+              {{item}}
+            </view>
+          </view>
+        </view>
+        
+        <!-- 出版社筛选 -->
+        <view class="filter-section">
+          <view class="filter-section-title">出版社</view>
+          <view class="filter-options">
+            <view 
+              class="filter-option {{currentPublisher === item ? 'active' : ''}}" 
+              wx:for="{{publishers}}" 
+              wx:key="*this"
+              bindtap="onPublisherSelect"
+              data-value="{{item}}"
+            >
+              {{item}}
+            </view>
+          </view>
+        </view>
+        
+        <!-- 出版年份筛选 -->
+        <view class="filter-section">
+          <view class="filter-section-title">出版年份</view>
+          <view class="filter-options">
+            <view 
+              class="filter-option {{currentPublishYear === item ? 'active' : ''}}" 
+              wx:for="{{publishYears}}" 
+              wx:key="*this"
+              bindtap="onPublishYearSelect"
+              data-value="{{item}}"
+            >
+              {{item}}
+            </view>
+          </view>
+        </view>
+        
+        <!-- 借阅状态筛选 -->
+        <view class="filter-section">
+          <view class="filter-section-title">借阅状态</view>
+          <view class="filter-options">
+            <view 
+              class="filter-option {{currentBorrowStatus === item ? 'active' : ''}}" 
+              wx:for="{{borrowStatus}}" 
+              wx:key="*this"
+              bindtap="onBorrowStatusSelect"
+              data-value="{{item}}"
+            >
+              {{item}}
+            </view>
           </view>
         </view>
       </view>
       
       <!-- 操作按钮 -->
       <view class="filter-buttons">
-        <van-button 
-          plain 
-          block 
-          bind:click="resetFilter"
-          custom-class="reset-btn"
-        >重置</van-button>
-        
-        <van-button 
-          type="primary" 
-          block 
-          bind:click="applyFilter"
-          color="{{theme.accentColor}}"
-          custom-class="apply-btn"
-        >确定</van-button>
+        <button class="reset-button" bindtap="resetFilter">重置</button>
+        <button class="apply-button" bindtap="applyFilter">确定</button>
       </view>
     </view>
   </van-popup>
