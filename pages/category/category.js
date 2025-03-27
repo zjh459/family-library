@@ -2,6 +2,9 @@
 const UNCATEGORIZED_ID = 'uncategorized'
 const UNCATEGORIZED_NAME = '未分类'
 
+const Database = require('../../utils/database')
+const app = getApp()
+
 const db = wx.cloud.database()
 const _ = db.command
 
@@ -28,7 +31,6 @@ Page({
       title: '同步中...'
     })
     
-    const app = getApp()
     // 调用app.js中的同步分类计数方法
     app.syncCategoriesCount()
       .then(() => {
@@ -53,12 +55,7 @@ Page({
     this.setData({ loading: true })
     try {
       // 获取所有分类
-      const categoriesRes = await db.collection('categories')
-        .orderBy('createTime', 'desc')
-        .get()
-      
-      // 直接使用数据库中的分类数据，包括count值
-      const categories = categoriesRes.data;
+      const categories = await Database.getCategories();
       
       // 添加未分类到分类列表最前面
       // 获取未分类图书数量 - 可以考虑使用数据库中的值，或计算真实值
@@ -88,29 +85,40 @@ Page({
   // 获取未分类的图书数量
   async getUncategorizedCount() {
     try {
-      // 查询没有categories字段或categories为空数组的图书
-      const res = await db.collection('books').where({
-        categories: _.eq([])
-      }).count();
-      
-      const res2 = await db.collection('books').where({
-        categories: _.eq(null)
-      }).count();
-      
-      const res3 = await db.collection('books').where({
-        categories: _.eq(undefined)
-      }).count();
-      
-      // 查询既没有categories也没有category的图书
-      const res4 = await db.collection('books').where({
-        categories: _.exists(false),
-        category: _.exists(false)
-      }).count();
-      
-      const total = res.total + res2.total + res3.total + res4.total;
-      console.log(`未分类图书数量: ${total} (空数组:${res.total}, null:${res2.total}, undefined:${res3.total}, 不存在:${res4.total})`);
-      
-      return total;
+      if (app.globalData.useApi) {
+        // 使用API模式，从服务器获取未分类图书数量
+        // 简单获取10本未分类图书来确认是否有未分类图书
+        const books = await Database.getBooks({ category: 'uncategorized', limit: 10 });
+        return books.length > 0 ? books[0].totalCount || books.length : 0;
+      } else {
+        // 使用云数据库模式
+        const db = wx.cloud.database();
+        const _ = db.command;
+        
+        // 查询没有categories字段或categories为空数组的图书
+        const res = await db.collection('books').where({
+          categories: _.eq([])
+        }).count();
+        
+        const res2 = await db.collection('books').where({
+          categories: _.eq(null)
+        }).count();
+        
+        const res3 = await db.collection('books').where({
+          categories: _.eq(undefined)
+        }).count();
+        
+        // 查询既没有categories也没有category的图书
+        const res4 = await db.collection('books').where({
+          categories: _.exists(false),
+          category: _.exists(false)
+        }).count();
+        
+        const total = res.total + res2.total + res3.total + res4.total;
+        console.log(`未分类图书数量: ${total} (空数组:${res.total}, null:${res2.total}, undefined:${res3.total}, 不存在:${res4.total})`);
+        
+        return total;
+      }
     } catch (err) {
       console.error('获取未分类图书数量失败:', err);
       return 0;
@@ -394,7 +402,7 @@ Page({
       console.log('跳转参数-标题:', title)
       
       wx.navigateTo({
-        url: `/miniprogram/pages/bookList/bookList?category=${categoryName}&title=${title}`
+        url: `/pages/bookList/bookList?category=${categoryName}&title=${title}`
       })
     } else {
       wx.showToast({

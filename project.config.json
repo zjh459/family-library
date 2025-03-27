@@ -32,7 +32,7 @@
     "packNpmRelationList": [
       {
         "packageJsonPath": "./package.json",
-        "miniprogramNpmDistDir": "./miniprogram/"
+        "miniprogramNpmDistDir": "./miniprogram"
       }
     ],
     "minifyWXSS": true,
@@ -42,8 +42,7 @@
       "ignore": [],
       "disablePlugins": [],
       "outputPath": ""
-    },
-    "cloudfunctionRoot": "cloudfunctions/"
+    }
   },
   "compileType": "miniprogram",
   "libVersion": "3.1.5",
@@ -53,6 +52,5 @@
   "editorSetting": {
     "tabIndent": "insertSpaces",
     "tabSize": 2
-  },
-  "cloudfunctionTemplateRoot": "cloudfunctionTemplate/"
+  }
 }

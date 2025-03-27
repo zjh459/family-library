@@ -1,0 +1,60 @@
+<view class="container">
+  <view class="header">
+    <text class="title">数据导出工具</text>
+    <text class="subtitle">将微信云数据库中的数据导出为JSON</text>
+  </view>
+  
+  <view class="content">
+    <view class="status-box">
+      <text class="status-text">{{exportStatus || '请点击下方按钮开始导出数据'}}</text>
+      
+      <progress 
+        percent="{{progress}}" 
+        show-info="{{true}}" 
+        stroke-width="3" 
+        active="{{exporting}}"
+        active-mode="forwards"
+        class="progress"
+      />
+    </view>
+    
+    <view class="data-summary" wx:if="{{books.length > 0 || categories.length > 0}}">
+      <text class="summary-text">已导出数据：{{categories.length}}个分类，{{books.length}}本图书</text>
+    </view>
+    
+    <view class="button-group">
+      <button 
+        type="primary" 
+        bindtap="startExport" 
+        loading="{{exporting}}" 
+        disabled="{{exporting}}"
+        class="export-btn"
+      >
+        开始导出数据
+      </button>
+      
+      <button 
+        type="default" 
+        bindtap="copyData" 
+        disabled="{{books.length === 0 || categories.length === 0}}"
+        class="copy-btn"
+      >
+        复制到剪贴板
+      </button>
+      
+      <button 
+        type="default" 
+        bindtap="exportToJSON" 
+        disabled="{{books.length === 0 || categories.length === 0}}"
+        class="save-btn"
+      >
+        保存为JSON文件
+      </button>
+    </view>
+  </view>
+  
+  <view class="footer">
+    <text class="tip">导出的数据可通过MySQL迁移工具导入到数据库</text>
+    <text class="tip">导出数据包含图书和分类信息</text>
+  </view>
+</view> 

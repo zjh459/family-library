@@ -1,12 +1,13 @@
 {
   "pages": [
-    "miniprogram/pages/welcome/welcome",
-    "miniprogram/pages/index/index",
-    "miniprogram/pages/bookAdd/bookAdd",
-    "miniprogram/pages/bookList/bookList",
-    "miniprogram/pages/bookDetail/bookDetail",
-    "miniprogram/pages/category/category",
-    "miniprogram/pages/search/search"
+    "pages/welcome/welcome",
+    "pages/index/index",
+    "pages/bookAdd/bookAdd",
+    "pages/bookList/bookList",
+    "pages/bookDetail/bookDetail",
+    "pages/category/category",
+    "pages/search/search",
+    "pages/dataExport/dataExport"
   ],
   "window": {
     "backgroundTextStyle": "light",
@@ -24,22 +25,22 @@
     "borderStyle": "white",
     "list": [
       {
-        "pagePath": "miniprogram/pages/index/index",
+        "pagePath": "pages/index/index",
         "text": "首页",
-        "iconPath": "miniprogram/images/home.png",
-        "selectedIconPath": "miniprogram/images/home-active.png"
+        "iconPath": "images/home.png",
+        "selectedIconPath": "images/home-active.png"
       },
       {
-        "pagePath": "miniprogram/pages/category/category",
+        "pagePath": "pages/category/category",
         "text": "分类",
-        "iconPath": "miniprogram/images/category.png",
-        "selectedIconPath": "miniprogram/images/category-active.png"
+        "iconPath": "images/category.png",
+        "selectedIconPath": "images/category-active.png"
       },
       {
-        "pagePath": "miniprogram/pages/search/search",
+        "pagePath": "pages/search/search",
         "text": "搜索",
-        "iconPath": "miniprogram/images/search.png",
-        "selectedIconPath": "miniprogram/images/search-active.png"
+        "iconPath": "images/search.png",
+        "selectedIconPath": "images/search-active.png"
       }
     ]
   },

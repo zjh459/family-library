@@ -1,5 +1,6 @@
 const app = getApp();
 const bookUtils = require('../../utils/book');
+const Database = require('../../utils/database');
 
 Page({
   data: {
@@ -45,12 +46,11 @@ Page({
   // 加载分类数据
   async loadCategories() {
     try {
-      const db = wx.cloud.database();
-      const res = await db.collection('categories').get();
+      const categories = await Database.getCategories();
       
-      if (res.data && res.data.length > 0) {
+      if (categories && categories.length > 0) {
         // 提取分类名称并保留"全部"选项在首位
-        const categoryNames = ['全部', ...res.data.map(item => item.name)];
+        const categoryNames = ['全部', ...categories.map(item => item.name)];
         
         this.setData({
           categories: categoryNames
@@ -64,29 +64,8 @@ Page({
   // 加载筛选数据（作者、出版社）
   async loadFiltersData() {
     try {
-      const db = wx.cloud.database();
-      // 增加获取数据上限，确保获取所有图书
-      const countResult = await db.collection('books').count();
-      const total = countResult.total;
-      
-      // 分批获取数据
-      const batchSize = 100;
-      const batchTimes = Math.ceil(total / batchSize);
-      const tasks = [];
-      
-      for (let i = 0; i < batchTimes; i++) {
-        const promise = db.collection('books')
-          .skip(i * batchSize)
-          .limit(batchSize)
-          .get();
-        tasks.push(promise);
-      }
-      
-      const results = await Promise.all(tasks);
-      let books = [];
-      results.forEach(res => {
-        books = books.concat(res.data);
-      });
+      // 使用统一API获取所有图书
+      const books = await Database.getBooks();
       
       if (books.length > 0) {
         // 提取唯一的作者和出版社
@@ -155,109 +134,96 @@ Page({
       hasSearched: true
     });
     
-    const db = wx.cloud.database();
-    const _ = db.command;
-    
     // 保存搜索历史（仅当关键词不为空时）
     if (this.data.keyword) {
       this.addToHistory(this.data.keyword);
     }
     
-    let query = {};
-    
-    // 添加关键字搜索条件（书名、作者或ISBN）
-    if (this.data.keyword) {
-      query = db.command.or([
-        {
-          title: db.RegExp({
-            regexp: this.data.keyword,
-            options: 'i'
-          })
-        },
-        {
-          author: db.RegExp({
-            regexp: this.data.keyword,
-            options: 'i'
-          })
-        },
-        {
-          isbn: db.RegExp({
-            regexp: this.data.keyword,
-            options: 'i'
-          })
-        }
-      ]);
-    }
+    // 准备搜索参数
+    const searchParams = {
+      keyword: this.data.keyword || ''
+    };
     
     // 添加筛选条件
-    let filterConditions = {};
-    
     if (this.data.currentCategory && this.data.currentCategory !== '全部') {
-      filterConditions.categories = this.data.currentCategory;
+      searchParams.category = this.data.currentCategory;
     }
     
     if (this.data.currentAuthor && this.data.currentAuthor !== '全部') {
-      // 使用正则表达式匹配作者，以支持多作者的情况
-      filterConditions.author = db.RegExp({
-        regexp: this.data.currentAuthor,
-        options: 'i'
-      });
+      searchParams.author = this.data.currentAuthor;
     }
     
     if (this.data.currentPublisher && this.data.currentPublisher !== '全部') {
-      filterConditions.publisher = this.data.currentPublisher;
+      searchParams.publisher = this.data.currentPublisher;
     }
     
     if (this.data.currentPublishYear && this.data.currentPublishYear !== '全部') {
-      filterConditions.publishDate = db.RegExp({
-        regexp: this.data.currentPublishYear,
-        options: 'i'
-      });
+      searchParams.publishYear = this.data.currentPublishYear;
     }
     
     if (this.data.currentBorrowStatus && this.data.currentBorrowStatus !== '全部') {
-      const status = this.data.currentBorrowStatus === '在库' ? 'in' : 'out';
-      filterConditions.borrowStatus = status;
+      searchParams.borrowStatus = this.data.currentBorrowStatus === '在库' ? 0 : 1;
     }
     
-    // 构建最终查询条件
-    let finalQuery = query;
-    
-    // 如果有筛选条件
-    if (Object.keys(filterConditions).length > 0) {
-      // 如果同时有关键字查询和筛选条件，使用AND组合
-      if (this.data.keyword) {
-        finalQuery = db.command.and([query, filterConditions]);
-      } else {
-        // 仅有筛选条件时直接使用
-        finalQuery = filterConditions;
-      }
-    } else if (!this.data.keyword) {
-      // 既没有关键词也没有筛选条件，则获取所有书籍
-      finalQuery = {};
-    }
-    
-    db.collection('books')
-      .where(finalQuery)
-      .get()
-      .then(res => {
-        // 处理封面URL
-        const books = res.data.map(book => bookUtils.processCoverUrl(book));
+    // 执行搜索
+    Database.searchBooks(this.data.keyword)
+      .then(result => {
+        console.log(`搜索到 ${result.length} 本图书`);
+        
+        // 应用内存筛选（对于API不支持的部分筛选条件）
+        let filteredResults = result;
+        
+        // 作者筛选
+        if (searchParams.author) {
+          filteredResults = filteredResults.filter(book => 
+            book.author && book.author.includes(searchParams.author)
+          );
+        }
+        
+        // 出版社筛选
+        if (searchParams.publisher) {
+          filteredResults = filteredResults.filter(book => 
+            book.publisher && book.publisher === searchParams.publisher
+          );
+        }
+        
+        // 出版年份筛选
+        if (searchParams.publishYear && searchParams.publishYear !== '更早') {
+          filteredResults = filteredResults.filter(book => {
+            if (!book.publication_date) return false;
+            return book.publication_date.startsWith(searchParams.publishYear);
+          });
+        } else if (searchParams.publishYear === '更早') {
+          // 处理"更早"的情况 - 筛选2018年之前的图书
+          const earlierYear = 2018;
+          filteredResults = filteredResults.filter(book => {
+            if (!book.publication_date) return false;
+            const year = parseInt(book.publication_date.split('-')[0]);
+            return year < earlierYear;
+          });
+        }
+        
+        // 借阅状态筛选
+        if (searchParams.borrowStatus !== undefined) {
+          filteredResults = filteredResults.filter(book => 
+            book.borrow_status === searchParams.borrowStatus
+          );
+        }
         
         this.setData({
-          searchResults: books,
+          searchResults: filteredResults,
           isSearching: false
         });
       })
-      .catch(err => {
-        console.error('搜索失败:', err);
-        this.setData({
-          isSearching: false,
-          searchResults: []
-        });
+      .catch(error => {
+        console.error('搜索失败:', error);
         wx.showToast({
           title: '搜索失败',
           icon: 'none'
+        });
+        this.setData({
+          isSearching: false,
+          searchResults: []
         });
       });
   },

@@ -1,0 +1,86 @@
+.container {
+  padding: 30rpx;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background-color: #f8f8f8;
+}
+
+.header {
+  margin-bottom: 40rpx;
+  text-align: center;
+}
+
+.title {
+  font-size: 40rpx;
+  font-weight: bold;
+  color: #333;
+  display: block;
+  margin-bottom: 10rpx;
+}
+
+.subtitle {
+  font-size: 28rpx;
+  color: #666;
+  display: block;
+}
+
+.content {
+  flex: 1;
+  background-color: #fff;
+  border-radius: 16rpx;
+  padding: 30rpx;
+  box-shadow: 0 2rpx 10rpx rgba(0, 0, 0, 0.05);
+}
+
+.status-box {
+  margin-bottom: 40rpx;
+}
+
+.status-text {
+  display: block;
+  font-size: 28rpx;
+  color: #333;
+  margin-bottom: 20rpx;
+}
+
+.progress {
+  margin: 20rpx 0;
+}
+
+.data-summary {
+  margin: 20rpx 0 40rpx;
+  padding: 20rpx;
+  background-color: #f8f8f8;
+  border-radius: 8rpx;
+}
+
+.summary-text {
+  font-size: 28rpx;
+  color: #333;
+}
+
+.button-group {
+  margin-top: 40rpx;
+}
+
+button {
+  margin-bottom: 30rpx;
+}
+
+.export-btn {
+  background-color: var(--accentColor, #FFA07A);
+}
+
+.footer {
+  margin-top: 40rpx;
+  padding: 20rpx;
+}
+
+.tip {
+  display: block;
+  font-size: 24rpx;
+  color: #999;
+  text-align: center;
+  margin-bottom: 10rpx;
+} 

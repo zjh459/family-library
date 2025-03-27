@@ -1,0 +1,15 @@
+{
+  "name": "bookshelf-backend",
+  "version": "1.0.0",
+  "description": "书架小程序MySQL后端",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "import": "node tools/import.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.17.1",
+    "mysql2": "^2.3.3"
+  }
+}

@@ -28,19 +28,20 @@
       <view 
         class="category-item {{selectedCategory === 'all' ? 'active' : ''}}" 
         bindtap="selectCategory" 
-        data-category="all"
+        data-id="all"
         style="{{selectedCategory !== 'all' ? 'background-color:' + theme.highlightColor : 'background-color:' + theme.accentColor}}"
       >
         全部
       </view>
       <view 
-        class="category-item {{selectedCategory === category.name ? 'active' : ''}}" 
+        class="category-item {{selectedCategory === category._id ? 'active' : ''}}" 
         wx:for="{{categories}}" 
         wx:key="_id" 
         wx:for-item="category"
         bindtap="selectCategory" 
-        data-category="{{category.name}}"
-        style="{{selectedCategory !== category.name ? 'background-color:' + theme.highlightColor : 'background-color:' + theme.accentColor}}"
+        data-id="{{category._id}}"
+        wx:if="{{category._id !== 'all'}}"
+        style="{{selectedCategory !== category._id ? 'background-color:' + theme.highlightColor : 'background-color:' + theme.accentColor}}"
       >
         {{category.name}}
       </view>
@@ -51,13 +52,13 @@
       <block wx:if="{{filteredBooks.length > 0}}">
         <view class="book-item" wx:for="{{filteredBooks}}" wx:key="_id" bindtap="goToDetail" data-id="{{item._id}}">
           <image class="book-cover" 
-                 src="{{item.coverUrl || '../../images/default-cover.png'}}" 
+                 src="{{item.cover || '../../images/default-book.png'}}" 
                  mode="aspectFill"
                  lazy-load="{{true}}"
                  show-menu-by-longpress="{{true}}"
                  binderror="onImageError"
-                 bindload="onLoadImage"
-                 data-index="{{index}}">
+                 bindload="onImageLoad"
+                 data-id="{{item._id}}">
             <view class="placeholder" wx:if="{{!item.coverLoaded}}"></view>
           </image>
           <view class="book-title">{{item.title}}</view>
