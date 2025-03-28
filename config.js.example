@@ -12,6 +12,10 @@ module.exports = {
     tanshu: {
       url: 'https://api.tanshuapi.com/api/isbn_base/v1/index',
       key: 'your-api-key' // 请替换为您的API密钥
+    },
+    // 新增服务器API配置
+    server: {
+      url: 'http://XXXX:3000/api'    // 修改为本地开发服务器
     }
   }
 } 
