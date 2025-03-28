@@ -1,0 +1,13 @@
+// 数据库配置示例文件
+// 请复制此文件为config.js并修改以下配置
+module.exports = {
+  database: {
+    host: 'localhost',           // MySQL服务器地址
+    user: 'your_mysql_username', // MySQL用户名
+    password: 'your_mysql_password', // MySQL密码
+    database: 'family_library',  // 数据库名称
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0
+  }
+};

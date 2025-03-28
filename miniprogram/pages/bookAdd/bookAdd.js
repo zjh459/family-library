@@ -1,6 +1,7 @@
 const app = getApp();
 const config = require('../.././../config');
 const bookUtils = require('../../utils/book');
+const api = require('../../utils/api');
 
 Page({
   data: {
@@ -343,20 +344,22 @@ Page({
   // 加载所有分类
   async loadCategories() {
     try {
-      const db = wx.cloud.database()
-      const res = await db.collection('categories').get()
+      const result = await api.getCategoriesStatistics()
+      const categories = result.data;
       
-      // 为每个分类添加选中状态
-      const categoriesWithSelection = res.data.map(category => ({
+      // 处理返回的数据，确保字段名称一致
+      const processedCategories = categories.map(category => ({
         ...category,
+        name: category.category_name,
+        _id: category.category_id,
         selected: false
       }));
       
       this.setData({
-        categories: res.data,
-        categoriesWithSelection: categoriesWithSelection
+        categories: processedCategories,
+        categoriesWithSelection: processedCategories
       })
-      console.log('加载分类成功，分类数量:', res.data.length);
+      console.log('加载分类成功，分类数量:', processedCategories.length);
       console.log('当前已选分类:', this.data.selectedCategories);
     } catch (err) {
       console.error('加载分类失败：', err)
@@ -781,79 +784,14 @@ Page({
   updateCategoriesCount(oldCategories, newCategories) {
     console.log('更新分类计数，原分类:', oldCategories, '新分类:', newCategories);
     
-    const db = wx.cloud.database();
-    const allCategories = [...new Set([...oldCategories, ...newCategories])];
-    
-    // 对每个受影响的分类进行处理
-    allCategories.forEach(categoryName => {
-      // 查询该分类相关的所有图书
-      db.collection('books')
-        .where({
-          categories: categoryName
-        })
-        .count()
-        .then(res => {
-          // 获取该分类的实际图书数量
-          const actualCount = res.total;
-          console.log(`分类[${categoryName}]的实际图书数量:`, actualCount);
-          
-          // 调试：查看该分类下的所有图书
-          db.collection('books')
-            .where({
-              categories: categoryName
-            })
-            .field({
-              _id: true,
-              title: true
-            })
-            .get()
-            .then(booksRes => {
-              console.log(`分类[${categoryName}]下的图书:`, 
-                booksRes.data.map(b => b.title));
-            });
-          
-          // 更新数据库中的计数
-          db.collection('categories')
-            .where({
-              name: categoryName
-            })
-            .get()
-            .then(catRes => {
-              if (catRes.data && catRes.data.length > 0) {
-                const categoryId = catRes.data[0]._id;
-                const currentCount = catRes.data[0].count;
-                
-                console.log(`准备更新分类[${categoryName}]计数，当前值:${currentCount}，新值:${actualCount}`);
-                
-                db.collection('categories').doc(categoryId).update({
-                  data: {
-                    count: actualCount
-                  }
-                }).then(() => {
-                  console.log(`分类[${categoryName}]计数已更新为:`, actualCount);
-                }).catch(err => {
-                  console.error(`更新分类[${categoryName}]计数失败:`, err);
-                  
-                  // 如果更新失败，尝试使用set方法覆盖
-                  const updatedCategory = {...catRes.data[0], count: actualCount};
-                  db.collection('categories').doc(categoryId).set({
-                    data: updatedCategory
-                  }).then(() => {
-                    console.log(`使用set方法更新分类[${categoryName}]计数成功`);
-                  }).catch(setErr => {
-                    console.error(`使用set方法更新分类[${categoryName}]计数失败:`, setErr);
-                  });
-                });
-              }
-            })
-            .catch(err => {
-              console.error(`查询分类[${categoryName}]失败:`, err);
-            });
-        })
-        .catch(err => {
-          console.error(`获取分类[${categoryName}]的图书数量失败:`, err);
-        });
-    });
+    // 使用API获取分类统计，后端会自动处理计数
+    api.getCategoriesStatistics()
+      .then(result => {
+        console.log('分类统计已更新:', result.data);
+      })
+      .catch(err => {
+        console.error('获取分类统计失败:', err);
+      });
   },
 
   // 显示添加分类弹窗
@@ -889,37 +827,32 @@ Page({
     }
 
     try {
-      const db = wx.cloud.database();
-      const result = await db.collection('categories').add({
-        data: {
-          name: this.data.newCategoryName,
-          icon: 'default',
-          color: '#' + Math.floor(Math.random()*16777215).toString(16), // 随机颜色
-          createTime: db.serverDate()
-        }
+      const result = await api.addCategory({
+        name: this.data.newCategoryName.trim(),
+        icon: 'default',
+        color: '#' + Math.floor(Math.random()*16777215).toString(16) // 随机颜色
       });
 
       // 添加成功后，刷新分类列表并选中新添加的分类
-      if (result._id) {
-        // 获取新添加的分类完整信息
-        const newCategory = await db.collection('categories').doc(result._id).get();
-        
-        // 添加到分类列表并设置为选中
-        const newSelectedCategories = [...this.data.selectedCategories, result._id];
+      if (result.data && result.data.id) {
+        const newCategory = {
+          _id: result.data.id,
+          name: result.data.name,
+          selected: true
+        };
         
         // 更新categoriesWithSelection
         const newCategoriesWithSelection = [
           ...this.data.categoriesWithSelection,
-          {
-            ...newCategory.data,
-            selected: true
-          }
+          newCategory
         ];
         
         this.setData({
-          categories: [...this.data.categories, newCategory.data],
-          selectedCategories: newSelectedCategories,
-          categoriesWithSelection: newCategoriesWithSelection
+          categories: [...this.data.categories, newCategory],
+          selectedCategories: [...this.data.selectedCategories, result.data.id],
+          categoriesWithSelection: newCategoriesWithSelection,
+          newCategoryName: '',
+          showAddCategoryInput: false
         });
 
         wx.showToast({

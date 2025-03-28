@@ -2,6 +2,7 @@ const app = getApp();
 const db = wx.cloud.database();
 const _ = db.command;
 const bookUtils = require('../../utils/book'); // 引入book工具函数
+const api = require('../../utils/api');
 
 Page({
   data: {
@@ -527,11 +528,16 @@ Page({
 
   // 加载分类数据
   loadCategories() {
-    return db.collection('categories')
-      .get()
-      .then(res => {
-        // 直接使用数据库中的count值
-        const categories = res.data;
+    return api.getCategoriesStatistics()
+      .then(result => {
+        // 处理返回的数据，确保字段名称一致
+        const categories = result.data.map(category => ({
+          ...category,
+          name: category.category_name,
+          _id: category.category_id,
+          count: category.book_count || 0
+        }));
+        
         console.log('首页-加载分类成功，分类总数:', categories.length);
         
         // 记录一下各分类的数量，便于调试
@@ -563,10 +569,16 @@ Page({
   // 初始化分类
   async initCategories() {
     try {
-      const { data } = await db.collection('categories').get();
+      const result = await api.getCategoriesStatistics();
       
-      if (data && data.length > 0) {
-        this.setData({ categories: data });
+      if (result.data && result.data.length > 0) {
+        const categories = result.data.map(category => ({
+          ...category,
+          name: category.category_name,
+          _id: category.category_id,
+          count: category.book_count || 0
+        }));
+        this.setData({ categories });
         return;
       }
 
@@ -583,19 +595,20 @@ Page({
 
       // 批量添加默认分类
       const tasks = defaultCategories.map(category => 
-        db.collection('categories').add({
-          data: {
-            ...category,
-            createTime: db.serverDate()
-          }
-        })
+        api.addCategory(category)
       );
 
       await Promise.all(tasks);
       
       // 重新获取分类列表
-      const { data: newData } = await db.collection('categories').get();
-      this.setData({ categories: newData });
+      const newResult = await api.getCategoriesStatistics();
+      const newCategories = newResult.data.map(category => ({
+        ...category,
+        name: category.category_name,
+        _id: category.category_id,
+        count: category.book_count || 0
+      }));
+      this.setData({ categories: newCategories });
     } catch (error) {
       console.error('初始化分类失败：', error);
       wx.showToast({

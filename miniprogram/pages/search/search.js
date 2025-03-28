@@ -1,5 +1,6 @@
 const app = getApp();
 const bookUtils = require('../../utils/book');
+const api = require('../../utils/api');
 
 Page({
   data: {
@@ -45,12 +46,11 @@ Page({
   // 加载分类数据
   async loadCategories() {
     try {
-      const db = wx.cloud.database();
-      const res = await db.collection('categories').get();
+      const result = await api.getCategoriesStatistics();
       
-      if (res.data && res.data.length > 0) {
+      if (result.data && result.data.length > 0) {
         // 提取分类名称并保留"全部"选项在首位
-        const categoryNames = ['全部', ...res.data.map(item => item.name)];
+        const categoryNames = ['全部', ...result.data.map(item => item.category_name)];
         
         this.setData({
           categories: categoryNames
@@ -64,31 +64,15 @@ Page({
   // 加载筛选数据（作者、出版社）
   async loadFiltersData() {
     try {
-      const db = wx.cloud.database();
-      // 增加获取数据上限，确保获取所有图书
-      const countResult = await db.collection('books').count();
-      const total = countResult.total;
+      console.log('开始加载筛选数据');
       
-      // 分批获取数据
-      const batchSize = 100;
-      const batchTimes = Math.ceil(total / batchSize);
-      const tasks = [];
+      // 使用API获取所有图书
+      const result = await api.getAllBooks();
+      const books = result.data;
       
-      for (let i = 0; i < batchTimes; i++) {
-        const promise = db.collection('books')
-          .skip(i * batchSize)
-          .limit(batchSize)
-          .get();
-        tasks.push(promise);
-      }
-      
-      const results = await Promise.all(tasks);
-      let books = [];
-      results.forEach(res => {
-        books = books.concat(res.data);
-      });
-      
-      if (books.length > 0) {
+      if (books && books.length > 0) {
+        console.log(`获取到 ${books.length} 本图书数据用于筛选`);
+        
         // 提取唯一的作者和出版社
         const authors = new Set(['全部']);
         const publishers = new Set(['全部']);
@@ -135,6 +119,11 @@ Page({
           authors: authorsArray,
           publishers: publishersArray
         });
+        
+        console.log('筛选数据加载完成:', {
+          authors: authorsArray.length,
+          publishers: publishersArray.length
+        });
       }
     } catch (err) {
       console.error('加载筛选数据失败：', err);
@@ -150,99 +139,88 @@ Page({
 
   // 提交搜索
   onSearch: function() {
+    if (!this.data.keyword && 
+        this.data.currentCategory === '全部' && 
+        this.data.currentAuthor === '全部' && 
+        this.data.currentPublisher === '全部' && 
+        this.data.currentPublishYear === '全部' && 
+        this.data.currentBorrowStatus === '全部') {
+      wx.showToast({
+        title: '请输入搜索关键词或选择筛选条件',
+        icon: 'none'
+      });
+      return;
+    }
+    
     this.setData({
       isSearching: true,
       hasSearched: true
     });
-    
-    const db = wx.cloud.database();
-    const _ = db.command;
     
     // 保存搜索历史（仅当关键词不为空时）
     if (this.data.keyword) {
       this.addToHistory(this.data.keyword);
     }
     
-    let query = {};
-    
-    // 添加关键字搜索条件（书名、作者或ISBN）
-    if (this.data.keyword) {
-      query = db.command.or([
-        {
-          title: db.RegExp({
-            regexp: this.data.keyword,
-            options: 'i'
-          })
-        },
-        {
-          author: db.RegExp({
-            regexp: this.data.keyword,
-            options: 'i'
-          })
-        },
-        {
-          isbn: db.RegExp({
-            regexp: this.data.keyword,
-            options: 'i'
-          })
-        }
-      ]);
-    }
+    // 构建搜索参数
+    const searchParams = {
+      searchText: this.data.keyword || '',
+      page: 1,
+      pageSize: 100 // 使用较大的pageSize避免分页
+    };
     
     // 添加筛选条件
-    let filterConditions = {};
-    
     if (this.data.currentCategory && this.data.currentCategory !== '全部') {
-      filterConditions.categories = this.data.currentCategory;
+      searchParams.category = this.data.currentCategory;
     }
     
-    if (this.data.currentAuthor && this.data.currentAuthor !== '全部') {
-      // 使用正则表达式匹配作者，以支持多作者的情况
-      filterConditions.author = db.RegExp({
-        regexp: this.data.currentAuthor,
-        options: 'i'
-      });
-    }
-    
-    if (this.data.currentPublisher && this.data.currentPublisher !== '全部') {
-      filterConditions.publisher = this.data.currentPublisher;
-    }
-    
-    if (this.data.currentPublishYear && this.data.currentPublishYear !== '全部') {
-      filterConditions.publishDate = db.RegExp({
-        regexp: this.data.currentPublishYear,
-        options: 'i'
-      });
-    }
-    
-    if (this.data.currentBorrowStatus && this.data.currentBorrowStatus !== '全部') {
-      const status = this.data.currentBorrowStatus === '在库' ? 'in' : 'out';
-      filterConditions.borrowStatus = status;
-    }
-    
-    // 构建最终查询条件
-    let finalQuery = query;
-    
-    // 如果有筛选条件
-    if (Object.keys(filterConditions).length > 0) {
-      // 如果同时有关键字查询和筛选条件，使用AND组合
-      if (this.data.keyword) {
-        finalQuery = db.command.and([query, filterConditions]);
-      } else {
-        // 仅有筛选条件时直接使用
-        finalQuery = filterConditions;
-      }
-    } else if (!this.data.keyword) {
-      // 既没有关键词也没有筛选条件，则获取所有书籍
-      finalQuery = {};
-    }
-    
-    db.collection('books')
-      .where(finalQuery)
-      .get()
-      .then(res => {
-        // 处理封面URL
-        const books = res.data.map(book => bookUtils.processCoverUrl(book));
+    // 调用API搜索图书
+    api.getBooks(searchParams)
+      .then(result => {
+        console.log('搜索结果:', result);
+        let books = result.data;
+        
+        // 手动过滤结果（如API不支持的筛选条件）
+        if (books && books.length > 0) {
+          // 作者筛选
+          if (this.data.currentAuthor && this.data.currentAuthor !== '全部') {
+            books = books.filter(book => 
+              book.author && book.author.indexOf(this.data.currentAuthor) !== -1
+            );
+          }
+          
+          // 出版社筛选
+          if (this.data.currentPublisher && this.data.currentPublisher !== '全部') {
+            books = books.filter(book => 
+              book.publisher === this.data.currentPublisher
+            );
+          }
+          
+          // 出版年份筛选
+          if (this.data.currentPublishYear && this.data.currentPublishYear !== '全部') {
+            const year = this.data.currentPublishYear;
+            books = books.filter(book => {
+              if (!book.publishDate) return false;
+              if (year === '更早') {
+                // 处理"更早"的情况 - 2018年以前
+                const bookYear = parseInt(book.publishDate.substring(0, 4), 10);
+                return bookYear < 2018;
+              } else {
+                // 匹配具体年份
+                return book.publishDate.indexOf(year) === 0;
+              }
+            });
+          }
+          
+          // 借阅状态筛选
+          if (this.data.currentBorrowStatus && this.data.currentBorrowStatus !== '全部') {
+            const status = this.data.currentBorrowStatus === '在库' ? 'in' : 'out';
+            books = books.filter(book => book.borrowStatus === status);
+          }
+          
+          // 处理封面URL
+          books = books.map(book => bookUtils.processCoverUrl(book));
+        }
         
         this.setData({
           searchResults: books,
@@ -250,13 +228,13 @@ Page({
         });
       })
       .catch(err => {
-        console.error('搜索失败:', err);
+        console.error('搜索失败：', err);
         this.setData({
           isSearching: false,
           searchResults: []
         });
         wx.showToast({
-          title: '搜索失败',
+          title: '搜索失败，请重试',
           icon: 'none'
         });
       });

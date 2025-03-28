@@ -28,17 +28,17 @@
 
   <!-- 图书列表 -->
   <view class="book-list">
-    <view class="book-item" wx:for="{{books}}" wx:key="_id" bindtap="goToDetail" data-id="{{item._id}}">
+    <view class="book-item" wx:for="{{books}}" wx:key="_id" bindtap="goToDetail" data-id="{{item._id || item.id}}">
       <view class="book-cover">
-        <image src="{{item.coverUrl || '/miniprogram/images/default-cover.png'}}" mode="aspectFill"></image>
+        <image src="{{item.coverUrl || item.cover || '/images/default-cover.png'}}" mode="aspectFill"></image>
       </view>
       <view class="book-info">
         <view class="book-title">{{item.title}}</view>
         <view class="book-author">{{item.author}}</view>
         <view class="book-isbn">ISBN: {{item.isbn}}</view>
         <!-- 借阅状态 -->
-        <view class="book-status {{item.borrowStatus === 'in' ? 'available' : 'unavailable'}}">
-          {{item.borrowStatus === 'in' ? '在库' : '借出'}}
+        <view class="book-status {{item.borrowStatus === 'in' || item.borrow_status === 'in' ? 'available' : 'unavailable'}}">
+          {{(item.borrowStatus === 'in' || item.borrow_status === 'in') ? '在库' : '借出'}}
         </view>
         <!-- 显示分类标签 -->
         <view class="book-categories" wx:if="{{item.categories && item.categories.length > 0}}">
@@ -60,7 +60,7 @@
 
   <!-- 空状态 -->
   <view class="empty-state" wx:if="{{!loading && books.length === 0}}">
-    <image src="/miniprogram/images/empty.png" mode="aspectFit"></image>
+    <image src="/images/empty.png" mode="aspectFit"></image>
     <text>暂无图书</text>
   </view>
 

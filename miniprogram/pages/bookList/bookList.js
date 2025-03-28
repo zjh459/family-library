@@ -1,6 +1,6 @@
-const db = wx.cloud.database()
-const _ = db.command
-const app = getApp() // 获取全局应用实例
+const api = require('../../utils/api');
+const app = getApp(); // 获取全局应用实例
+const bookUtils = require('../../utils/book');
 
 // 未分类的特殊标识
 const UNCATEGORIZED_MARK = '__uncategorized__'
@@ -26,9 +26,11 @@ Page({
       theme: app.globalData.theme || { accentColor: '#8FBC8F' }
     })
     
+    console.log('bookList 接收到的原始参数:', options)
+    
     if (options.category) {
       const category = decodeURIComponent(options.category)
-      console.log('接收到的分类参数:', category)
+      console.log('解析后的分类参数:', category)
       
       // 检查是否是未分类的特殊标记
       if (category === UNCATEGORIZED_MARK) {
@@ -40,12 +42,13 @@ Page({
         this.setData({
           selectedCategory: category
         })
+        console.log('设置选中分类为:', category)
       }
     }
     
     if (options.title) {
       const title = decodeURIComponent(options.title)
-      console.log('接收到的标题参数:', title)
+      console.log('解析后的标题参数:', title)
       this.setData({
         categoryTitle: title
       })
@@ -79,43 +82,40 @@ Page({
     }
   },
 
-  // 获取不受限制的集合
-  getCollection() {
-    return db.collection('books');
-  },
-
   async loadBooks() {
     if (this.data.loading) return
 
     this.setData({ loading: true })
     try {
-      const query = this.getSearchQuery()
-      console.log('查询条件:', JSON.stringify(query))
-      console.log('当前选中分类:', this.data.selectedCategory)
+      // 使用分页API获取图书
+      const params = {
+        page: this.data.page,
+        pageSize: this.data.pageSize,
+        searchText: this.data.searchText || '',
+        category: this.data.selectedCategory || ''
+      };
       
-      // 获取一次性查询最大数量的数据
-      const res = await this.getCollection()
-        .where(query)
-        .limit(100)  // 一次性尝试获取更多数据
-        .orderBy('createTime', 'desc')
-        .get()
-
-      console.log('查询结果数量:', res.data.length)
+      // 对未分类情况特殊处理
+      if (this.data.isUncategorized) {
+        params.uncategorized = true;
+      }
       
-      // 打印每本书的分类信息
-      res.data.forEach(book => {
-        console.log(`书籍 [${book.title}] 的分类:`, book.categories || book.category || '无分类')
-      })
-
-      const total = await this.getCollection().where(query).count()
-      console.log('总记录数:', total.total)
+      console.log('查询参数:', params);
+      const result = await api.getBooks(params);
+      console.log('API分页返回:', result);
+      
+      // 处理返回的数据
+      const books = result.data.map(book => bookUtils.processCoverUrl(book));
       
       this.setData({
-        books: res.data,
-        total: total.total,
-        hasMore: res.data.length < total.total,
+        books: books,
+        total: result.total || books.length,
+        hasMore: books.length >= this.data.pageSize,
         loading: false
-      })
+      });
+      
+      // 将结果添加到全局books缓存中
+      this.updateGlobalBooks(books);
     } catch (err) {
       console.error('加载图书失败：', err)
       wx.showToast({
@@ -135,19 +135,33 @@ Page({
     })
 
     try {
-      const query = this.getSearchQuery()
-      const res = await db.collection('books')
-        .where(query)
-        .skip((this.data.page - 1) * this.data.pageSize)
-        .limit(this.data.pageSize)
-        .orderBy('createTime', 'desc')
-        .get()
-
+      // 使用分页API获取下一页图书
+      const params = {
+        page: this.data.page,
+        pageSize: this.data.pageSize,
+        searchText: this.data.searchText || '',
+        category: this.data.selectedCategory || ''
+      };
+      
+      // 对未分类情况特殊处理
+      if (this.data.isUncategorized) {
+        params.uncategorized = true;
+      }
+      
+      console.log('加载更多 - 查询参数:', params);
+      const result = await api.getBooks(params);
+      
+      // 处理返回的数据
+      const newBooks = result.data.map(book => bookUtils.processCoverUrl(book));
+      
       this.setData({
-        books: [...this.data.books, ...res.data],
-        hasMore: res.data.length === this.data.pageSize,
+        books: [...this.data.books, ...newBooks],
+        hasMore: newBooks.length >= this.data.pageSize,
         loading: false
-      })
+      });
+      
+      // 将结果添加到全局books缓存中
+      this.updateGlobalBooks(newBooks);
     } catch (err) {
       console.error('加载更多图书失败：', err)
       wx.showToast({
@@ -156,6 +170,28 @@ Page({
       })
       this.setData({ loading: false })
     }
+  },
+  
+  // 更新全局图书缓存
+  updateGlobalBooks(books) {
+    if (!books || books.length === 0) return;
+    
+    const app = getApp();
+    if (!app.globalData.books) {
+      app.globalData.books = [];
+    }
+    
+    // 更新全局books，避免重复
+    books.forEach(book => {
+      const index = app.globalData.books.findIndex(b => b.id === book.id);
+      if (index >= 0) {
+        app.globalData.books[index] = book;
+      } else {
+        app.globalData.books.push(book);
+      }
+    });
+    
+    console.log('全局图书缓存更新，当前数量:', app.globalData.books.length);
   },
 
   getSearchQuery() {
@@ -274,9 +310,15 @@ Page({
 
   async loadCategories() {
     try {
-      const res = await db.collection('categories').get()
+      const result = await api.getCategoriesStatistics()
+      const categories = result.data.map(category => ({
+        ...category,
+        name: category.category_name,
+        _id: category.category_id
+      }));
+      
       this.setData({
-        categories: res.data
+        categories: categories
       })
     } catch (err) {
       console.error('加载分类失败：', err)
@@ -292,4 +334,4 @@ Page({
     })
     this.loadBooks()
   }
-}) 
+})
